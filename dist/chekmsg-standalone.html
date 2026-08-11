@@ -3,6 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!--
+  จำกัดปลายทางที่หน้านี้ติดต่อได้ ให้เหลือเท่าที่ใช้จริง
+  ผู้ใช้วาง SMS ธนาคารลงในหน้านี้ ถ้ามีสคริปต์แปลกปลอมเข้ามาได้ CSP คือด่านที่กันไม่ให้ส่งข้อมูลออก
+
+  ตั้ง OCR.proxyUrl เป็นโดเมนอื่นเมื่อไร ต้องเติมโดเมนนั้นใน connect-src ด้วย ไม่งั้น OCR จะพัง
+  frame-ancestors ใส่ใน meta ไม่มีผล ถ้าอยากกัน clickjacking ต้องตั้งเป็น header ที่ nginx
+-->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net;
+  worker-src blob:;
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' data: blob:;
+  connect-src 'self' https://cdn.jsdelivr.net https://tessdata.projectnaptha.com;
+  form-action 'none';
+  base-uri 'none';
+  object-src 'none'">
 <title>ChekMsg — Banking Fraud Screener (standalone)</title>
 <style>
   :root{
@@ -174,39 +191,84 @@
 
 /* ===== inlined engine.js ===== */
 /**
- * ChekMsg detection engine v0.4
+ * ChekMsg detection engine v0.5
  *
  * ทำงานได้ทั้งในเบราว์เซอร์และ Node (ES module)
  * ตัว engine ไม่รู้จักภาษาที่จะแสดงผล — คืนค่าเป็น "รหัส" ให้ชั้น UI แปลเอง
  * เพื่อให้เพิ่มภาษาได้โดยไม่ต้องแตะ logic
  *
- * สิ่งที่ v0.4 แก้จาก v0.3:
+ * โครงจาก v0.4:
  *   1. pattern อยู่ใน patterns.json ไม่ปนกับโค้ด
  *   2. รู้จักการปฏิเสธ — "ห้ามบอก OTP" ไม่ถูกนับเป็นสัญญาณสแกม
  *   3. นับสูงสุด 1 ครั้งต่อหมวด กันคะแนนเฟ้อจาก pattern ที่ซ้อนกัน
  *   4. ตัดสินด้วยส่วนต่างคะแนน ไม่ใช่คำเดียวชนะ
  *   5. ตรวจโดเมนของลิงก์เทียบ allowlist ของธนาคาร/หน่วยงานรัฐ
  *   6. คืน "ความแรงของสัญญาณ" แทน % ความมั่นใจปลอม
+ *
+ * สิ่งที่ v0.5 แก้ — ทั้งสามข้อพิสูจน์ด้วยชุดทดสอบ `evasion` ใน tests/testset.json:
+ *   7. ปิดช่องยัดคำปฏิเสธ ที่เคยล้างสัญญาณสแกมทั้งข้อความจนตอบว่า legit
+ *      (จำกัดหมวดที่ปฏิเสธได้ + ตรวจจับการพูดคำปฏิเสธซ้ำหลายจุด)
+ *   8. เลิกตีชื่อไฟล์และประโยคที่ช่องว่างหลังจุดหายว่าเป็นโดเมนแปลกปลอม
+ *   9. ตัดอักขระล่องหน (zero-width, ขึ้นบรรทัดใหม่) ก่อนเทียบ keyword ไม่ใช่แค่ช่องว่าง
  */
 
-const URL_RE = /(?:https?:\/\/)?((?:[a-z0-9-]+\.)+[a-z]{2,})(?:\/[^\s]*)?/gi;
+/**
+ * group 1 = scheme, 2 = host, 3 = tld, 4 = path
+ * ตัวจับอย่างเดียวยังไม่พอ — ข้อความปกติมีคำติดกันด้วยจุดเยอะ ("statement.pdf",
+ * "Payment received.Thank you" ที่ช่องว่างหายจาก OCR) ตัวกรองอยู่ใน isRealLink()
+ */
+const URL_RE = /(https?:\/\/)?((?:[a-z0-9-]+\.)+([a-z]{2,24}))(\/[^\s]*)?/gi;
+
+/** อักขระที่ต้องลบทิ้งก่อนเทียบ keyword — ช่องว่างทุกชนิด + อักขระล่องหน */
+const BLANK_RE = /[\s\u00ad\u200b-\u200f\u2060]/;
+const BLANK_G = /[\s\u00ad\u200b-\u200f\u2060]/g;
 
 function createEngine(patterns) {
   const {
     thresholds, negations, negationWindow, categories,
+    negatableCats, negationGuard = {},
     scam = [], legit = [], risk = [], linkCheck = {}
   } = patterns;
 
   const compiledRisk = risk.map(r => ({ ...r, re: new RegExp(r.regex, r.flags || '') }));
   const trusted = new Set((linkCheck.trustedDomains || []).map(d => d.toLowerCase()));
   const bankMentions = (linkCheck.bankMentions || []).map(m => m.toLowerCase());
+  const tldAllow = new Set((linkCheck.tldAllow || []).map(d => d.toLowerCase()));
+  const fileExtDeny = new Set((linkCheck.fileExtDeny || []).map(d => d.toLowerCase()));
   const allNegations = [...(negations.en || []), ...(negations.th || [])];
+  // ไม่ระบุ = ให้ปฏิเสธได้ทุกหมวดเหมือน v0.4 (แต่ patterns.json ปัจจุบันระบุไว้แล้ว)
+  const canNegate = negatableCats ? new Set(negatableCats) : null;
+  const negSpamAt = negationGuard.threshold || 3;
+  const negSpamW = negationGuard.w || 3;
 
   /** ข้อความก่อนหน้าตำแหน่งที่ match มีคำปฏิเสธหรือไม่ */
   function isNegated(lowerText, matchIndex, lang) {
     const win = (negationWindow && negationWindow[lang]) || 30;
     const before = lowerText.slice(Math.max(0, matchIndex - win), matchIndex);
     return allNegations.some(n => before.includes(n));
+  }
+
+  /**
+   * นับ "กลุ่ม" ของคำปฏิเสธในข้อความ โดยรวมช่วงที่ทับกันให้เหลือครั้งเดียว
+   * ("we will never" นับ 1 ไม่ใช่ 2 จาก "will never" + "never")
+   *
+   * คำเตือนจริงของธนาคารใช้คำปฏิเสธชุดเดียวคลุมหลายเรื่อง ส่วนการยัดคำปฏิเสธ
+   * เพื่อล้างสัญญาณต้องพูดซ้ำหน้าทุกวลี จำนวนกลุ่มจึงแยกสองอย่างนี้ออกจากกันได้
+   */
+  function countNegationClusters(lowerText) {
+    const spans = [];
+    for (const n of allNegations) {
+      let i = 0;
+      while ((i = lowerText.indexOf(n, i)) !== -1) { spans.push([i, i + n.length]); i += 1; }
+    }
+    if (!spans.length) return 0;
+    spans.sort((a, b) => a[0] - b[0]);
+    let clusters = 1, end = spans[0][1];
+    for (const [s, e] of spans.slice(1)) {
+      if (s >= end) clusters++;
+      if (e > end) end = e;
+    }
+    return clusters;
   }
 
   /** เหลือรายการที่น้ำหนักสูงสุดของแต่ละหมวด */
@@ -219,12 +281,27 @@ function createEngine(patterns) {
     return [...best.values()];
   }
 
+  /**
+   * "word.word" ไม่ได้แปลว่าเป็นลิงก์เสมอไป — ชื่อไฟล์ (statement.pdf) และประโยค
+   * ที่ช่องว่างหลังจุดหายจาก OCR ("received.Thank") ก็หน้าตาเหมือนกัน
+   * ถ้าไม่มี scheme / www. / path ให้เชื่อเฉพาะ TLD ที่อยู่ในรายการเท่านั้น
+   */
+  function isRealLink({ scheme, host, tld, path }) {
+    if (scheme) return true;
+    if (host.startsWith('www.')) return true;
+    if (fileExtDeny.has(tld)) return false;
+    if (path) return true;
+    return tldAllow.has(tld);
+  }
+
   function extractDomains(raw) {
     const out = [];
     URL_RE.lastIndex = 0;
     let m;
     while ((m = URL_RE.exec(raw)) !== null) {
-      const host = m[1].toLowerCase();
+      const host = m[2].toLowerCase();
+      const tld = m[3].toLowerCase();
+      if (!isRealLink({ scheme: m[1], host, tld, path: m[4] })) continue;
       // ตัด subdomain ให้เหลือ 2 ระดับสุดท้าย เว้นโดเมนไทยที่เป็น 3 ระดับ (co.th, or.th, go.th, ac.th, in.th)
       const parts = host.split('.');
       const isThreeLevelTh = parts.length > 2 && parts[parts.length - 1] === 'th' &&
@@ -236,8 +313,9 @@ function createEngine(patterns) {
   }
 
   /**
-   * ลบช่องว่างออกทั้งหมด พร้อมเก็บ map กลับไปยังตำแหน่งเดิม
-   * เพื่อรับมือเทคนิคหลบ keyword ด้วยการแทรกช่องว่าง เช่น "ก ด ลิ ง ก์"
+   * ลบช่องว่างและอักขระล่องหนออกทั้งหมด พร้อมเก็บ map กลับไปยังตำแหน่งเดิม
+   * เพื่อรับมือเทคนิคหลบ keyword ด้วยการแทรกอะไรก็ตามที่มองไม่เห็น
+   * เช่น "ก ด ลิ ง ก์", zero-width space กลางคำ, หรือขึ้นบรรทัดใหม่กลางคำ
    * (พบจริงในสแกมไทย — ดู note ใน README)
    */
   function despace(lowerText) {
@@ -245,7 +323,7 @@ function createEngine(patterns) {
     const map = [];
     for (let i = 0; i < lowerText.length; i++) {
       const ch = lowerText[i];
-      if (ch === ' ' || ch === ' ' || ch === '\t') continue;
+      if (BLANK_RE.test(ch)) continue;
       out += ch;
       map.push(i);
     }
@@ -256,7 +334,7 @@ function createEngine(patterns) {
   function findMatch(lower, packed, needle) {
     const direct = lower.indexOf(needle);
     if (direct !== -1) return direct;
-    const squeezed = needle.replace(/\s+/g, '');
+    const squeezed = needle.replace(BLANK_G, '');
     if (!squeezed) return -1;
     const idx = packed.text.indexOf(squeezed);
     return idx === -1 ? -1 : packed.map[idx];
@@ -271,11 +349,20 @@ function createEngine(patterns) {
     const legitHits = [];
     let negatedCount = 0;
 
+    /* คำเตือนจริงของธนาคารใช้คำปฏิเสธชุดเดียวคลุมทั้งข้อความ ถ้าเจอเป็นกลุ่ม ๆ
+       หลายจุด แปลว่ากำลังถูกยัดคำปฏิเสธเพื่อล้างสัญญาณ ให้ปิดการปฏิเสธทั้งหมด
+       แล้วนับความพยายามนั้นเป็นสัญญาณอันตรายแทน */
+    const negationClusters = countNegationClusters(lower);
+    const negationSpam = negationClusters >= negSpamAt;
+
     // --- keyword ฝั่งสแกม (ข้ามถ้าถูกปฏิเสธ) ---
     for (const p of scam) {
       const idx = findMatch(lower, packed, p.match.toLowerCase());
       if (idx === -1) continue;
-      if (isNegated(lower, idx, p.lang)) { negatedCount++; continue; }
+      // ปฏิเสธได้เฉพาะหมวดที่ธนาคารเตือนจริง — ไม่มีธนาคารไหนเขียนว่า
+      // "เราจะไม่ระงับบัญชีคุณ" ดังนั้นคำขู่ระงับบัญชีจึงปฏิเสธไม่ได้
+      const negatable = !negationSpam && (!canNegate || canNegate.has(p.cat));
+      if (negatable && isNegated(lower, idx, p.lang)) { negatedCount++; continue; }
       scamHits.push({ id: p.id, cat: p.cat, w: p.w, side: 'scam' });
     }
 
@@ -296,6 +383,12 @@ function createEngine(patterns) {
     for (const r of compiledRisk) {
       r.re.lastIndex = 0;
       if (r.re.test(raw)) riskHits.push({ id: r.id, cat: r.cat, w: r.w, side: 'risk' });
+    }
+    if (negationSpam) {
+      riskHits.push({
+        id: 'r_negation_spam', cat: 'negation_spam', w: negSpamW, side: 'risk',
+        detail: negationClusters + ' clusters'
+      });
     }
 
     // --- ตรวจโดเมนของลิงก์ ---
@@ -339,6 +432,8 @@ function createEngine(patterns) {
       legitScore,
       margin,
       negatedCount,
+      negationClusters,
+      negationSpam,
       scamSignals: scamFinal,
       legitSignals: legitFinal,
       domains: domains.map(d => d.registrable),
@@ -360,6 +455,7 @@ const T = {
   en: {
     tagline: 'Paste any bank SMS, LINE message, or notification below and get an instant read on whether it looks like a scam.',
     privacy: 'Everything runs inside your browser. Your message is never uploaded, stored, or sent anywhere.',
+    privacyCloud: 'The scam check runs inside your browser — your text is never uploaded. Screenshots are the one exception: reading text from an image is done by an external service, so any image you pick is sent there.',
     inputLabel: 'Message to check',
     placeholder: 'e.g. Your account will be suspended. Verify your identity now by clicking the link...',
     charWord: 'characters',
@@ -397,6 +493,7 @@ const T = {
     caveat: 'This is a rules-based screener, not an AI model and not a guarantee. It has no way to detect a scam whose wording it has never seen. Treat "Likely Legit" as "no red flags found", not as "safe".',
     ocrHead: 'Have a screenshot instead?',
     ocrHint: 'Drop an image here, paste one with Ctrl+V, or pick a file. The text is read inside your browser — the image is never uploaded.',
+    ocrHintCloud: 'Drop an image here, paste one with Ctrl+V, or pick a file. The image is sent to an external service to have its text read.',
     ocrPick: 'Choose an image',
     ocrLoading: 'Loading the text reader (first time only, may take a while)…',
     ocrReading: 'Reading the image…',
@@ -412,6 +509,7 @@ const T = {
   th: {
     tagline: 'วางข้อความ SMS, LINE หรือการแจ้งเตือนจากธนาคาร แล้วดูว่าเข้าข่ายสแกมหรือไม่',
     privacy: 'ระบบประมวลผลในเครื่องคุณทั้งหมด ข้อความไม่ถูกอัปโหลด ไม่ถูกเก็บ และไม่ถูกส่งไปที่ใด',
+    privacyCloud: 'การตรวจข้อความทำในเครื่องคุณทั้งหมด ข้อความไม่ถูกอัปโหลด ยกเว้นอย่างเดียวคือภาพ screenshot — การอ่านข้อความจากภาพใช้บริการภายนอก ภาพที่คุณเลือกจึงถูกส่งออกไป',
     inputLabel: 'ข้อความที่ต้องการตรวจสอบ',
     placeholder: 'เช่น บัญชีของคุณจะถูกระงับ กรุณายืนยันตัวตนโดยกดลิงก์ด้านล่าง...',
     charWord: 'ตัวอักษร',
@@ -449,6 +547,7 @@ const T = {
     caveat: 'เครื่องมือนี้ทำงานด้วยกฎที่เขียนไว้ ไม่ใช่โมเดล AI และไม่ใช่การรับประกัน ระบบไม่มีทางจับสแกมที่ใช้คำซึ่งไม่เคยถูกใส่ไว้ ให้ตีความ "น่าจะเป็นข้อความปกติ" ว่า "ไม่พบสัญญาณอันตราย" ไม่ใช่ "ปลอดภัย"',
     ocrHead: 'มีแต่ภาพ screenshot?',
     ocrHint: 'ลากภาพมาวางตรงนี้ กด Ctrl+V เพื่อวางภาพที่ copy ไว้ หรือเลือกไฟล์ก็ได้ ระบบอ่านข้อความในเครื่องคุณ ไม่มีการอัปโหลดภาพไปที่ใด',
+    ocrHintCloud: 'ลากภาพมาวางตรงนี้ กด Ctrl+V เพื่อวางภาพที่ copy ไว้ หรือเลือกไฟล์ก็ได้ ภาพจะถูกส่งไปให้บริการภายนอกอ่านข้อความ',
     ocrPick: 'เลือกไฟล์ภาพ',
     ocrLoading: 'กำลังโหลดตัวอ่านข้อความ (ครั้งแรกเท่านั้น อาจใช้เวลาสักครู่)…',
     ocrReading: 'กำลังอ่านข้อความจากภาพ…',
@@ -469,7 +568,11 @@ const T = {
    ตัวกลางอยู่ในโฟลเดอร์ ocr-proxy/ — ห้ามใส่ API key ตรงนี้เด็ดขาด */
 const OCR = {
   proxyUrl: '',
-  cdn: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js',
+  // ตรึงเวอร์ชันแน่นอน ไม่ใช่ @5 เพราะ integrity ผูกกับไฟล์เดียว ขยับเวอร์ชันเมื่อไร hash ก็เปลี่ยน
+  // อัปเดตทั้งคู่พร้อมกันเสมอ:  openssl dgst -sha384 -binary tesseract.min.js | openssl base64 -A
+  // หมายเหตุ: ไฟล์ที่ tesseract โหลดต่อเอง (worker, wasm, ข้อมูลภาษา) ไม่มี SRI คุ้มครอง
+  cdn: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js',
+  cdnIntegrity: 'sha384-GJqSu7vueQ9qN0E9yLPb3Wtpd7OrgK8KmYzC8T1IysG1bcvxvIO4qtYR/D3A991F',
   langs: 'tha+eng',
   maxDim: 1800,        // ย่อด้านยาวสุดเหลือเท่านี้ก่อนส่ง (ค่าเดียวกับ SDK ของ Typhoon)
   timeoutMs: 60000
@@ -496,7 +599,7 @@ const $ = id => document.getElementById(id);
 
 /* ---------- boot ---------- */
 try {
-  const patterns = {"version":"0.4.0","updated":"2026-08-09","note":"แก้ไฟล์นี้เพื่อเพิ่ม/ลบ wording ได้เลย ไม่ต้องแตะโค้ด | w = น้ำหนัก 1-5 | cat = หมวด (นับสูงสุด 1 ครั้งต่อหมวด กันคะแนนเฟ้อ)","thresholds":{"scamMargin":4,"legitMargin":2,"strength":{"medium":5,"high":9}},"negations":{"en":["do not","don't","dont","never","will never","won't","wont","no need to","we do not","we don't"],"th":["ห้าม","อย่า","ไม่ควร","จะไม่","ไม่มีนโยบาย","ไม่ได้ขอ","ไม่เคยขอ"]},"negationWindow":{"en":34,"th":26},"categories":{"otp_request":{"en":"asks for your OTP","th":"ขอรหัส OTP จากคุณ"},"credential_request":{"en":"asks for password / PIN / bank details","th":"ขอรหัสผ่าน PIN หรือข้อมูลบัญชี"},"account_threat":{"en":"threatens to suspend the account","th":"ขู่ว่าบัญชีจะถูกระงับ"},"urgency":{"en":"artificial urgency","th":"เร่งรัดให้รีบทำ"},"click_link":{"en":"pushes you to click a link","th":"ผลักให้กดลิงก์"},"prize":{"en":"unsolicited prize or reward","th":"อ้างว่าได้รางวัลโดยไม่ได้สมัคร"},"delivery":{"en":"fake parcel / customs fee","th":"อ้างพัสดุตกค้าง เก็บค่าธรรมเนียม"},"loan":{"en":"suspicious loan offer","th":"เสนอเงินกู้ผิดปกติ"},"job":{"en":"suspicious job offer","th":"ชวนทำงานรายได้ง่ายผิดปกติ"},"investment":{"en":"investment scam pitch","th":"ชวนลงทุนแบบการันตีผลตอบแทน"},"gambling":{"en":"online gambling pitch","th":"ชวนเล่นพนันออนไลน์"},"impersonate_bank":{"en":"impersonates a bank","th":"แอบอ้างเป็นธนาคาร"},"impersonate_gov":{"en":"impersonates a government agency","th":"แอบอ้างเป็นหน่วยงานรัฐ"},"personal_money":{"en":"someone you know asking for money","th":"อ้างเป็นคนรู้จักขอยืมเงิน"},"app_install":{"en":"tells you to install an app","th":"ให้ติดตั้งแอปพลิเคชัน"},"add_line":{"en":"asks you to add a LINE account","th":"ให้แอด LINE"},"refund_claim":{"en":"fake refund / grant","th":"อ้างเงินคืนหรือเงินช่วยเหลือ"},"txn_confirm":{"en":"transaction confirmation","th":"แจ้งผลทำรายการสำเร็จ"},"balance":{"en":"balance notification","th":"แจ้งยอดคงเหลือ"},"statement":{"en":"statement or bill notice","th":"แจ้งใบแจ้งยอด"},"automated":{"en":"standard automated notice","th":"ข้อความอัตโนมัติมาตรฐาน"},"security_advice":{"en":"genuine bank security advice","th":"คำเตือนความปลอดภัยของธนาคาร"},"otp_delivery":{"en":"delivers an OTP to you","th":"ส่งรหัส OTP มาให้คุณ"},"maintenance":{"en":"service maintenance notice","th":"แจ้งปิดปรับปรุงระบบ"},"link_short":{"en":"shortened link","th":"ลิงก์ย่อ"},"link_untrusted":{"en":"link to a non-bank domain","th":"ลิงก์ไปโดเมนที่ไม่ใช่ของธนาคาร"},"link_apk":{"en":"link to an installable app file","th":"ลิงก์ไฟล์ติดตั้งแอป"},"punct":{"en":"excessive urgency punctuation","th":"เครื่องหมายเร่งเร้าเกินปกติ"}},"scam":[{"id":"s_en_send_otp","lang":"en","cat":"otp_request","match":"send your otp","w":5},{"id":"s_en_share_otp","lang":"en","cat":"otp_request","match":"share your otp","w":5},{"id":"s_en_provide_otp","lang":"en","cat":"otp_request","match":"provide the otp","w":5},{"id":"s_en_confirm_otp","lang":"en","cat":"otp_request","match":"reply with the code","w":4},{"id":"s_th_send_otp","lang":"th","cat":"otp_request","match":"ส่ง otp","w":5},{"id":"s_th_send_otp2","lang":"th","cat":"otp_request","match":"ส่งรหัส otp","w":5},{"id":"s_th_tell_otp","lang":"th","cat":"otp_request","match":"แจ้งรหัส otp","w":5},{"id":"s_th_tell_otp2","lang":"th","cat":"otp_request","match":"บอกรหัส otp","w":5},{"id":"s_en_bank_details","lang":"en","cat":"credential_request","match":"send your bank details","w":5},{"id":"s_en_share_pw","lang":"en","cat":"credential_request","match":"share your password","w":5},{"id":"s_en_share_pin","lang":"en","cat":"credential_request","match":"share your pin","w":5},{"id":"s_en_confirm_card","lang":"en","cat":"credential_request","match":"confirm your card number","w":5},{"id":"s_th_fill_info","lang":"th","cat":"credential_request","match":"กรอกข้อมูลส่วนตัว","w":4},{"id":"s_th_fill_bank","lang":"th","cat":"credential_request","match":"กรอกเลขบัญชี","w":4},{"id":"s_th_fill_pw","lang":"th","cat":"credential_request","match":"กรอกรหัสผ่าน","w":5},{"id":"s_th_confirm_id","lang":"th","cat":"credential_request","match":"ยืนยันตัวตน","w":3},{"id":"s_th_confirm_info","lang":"th","cat":"credential_request","match":"ยืนยันข้อมูล","w":3},{"id":"s_en_suspend","lang":"en","cat":"account_threat","match":"will be suspended","w":4},{"id":"s_en_locked","lang":"en","cat":"account_threat","match":"account has been locked","w":4},{"id":"s_en_frozen","lang":"en","cat":"account_threat","match":"account is frozen","w":4},{"id":"s_en_unusual","lang":"en","cat":"account_threat","match":"unusual activity detected","w":2},{"id":"s_th_suspend","lang":"th","cat":"account_threat","match":"บัญชีจะถูกระงับ","w":4},{"id":"s_th_suspend2","lang":"th","cat":"account_threat","match":"ระงับการใช้งาน","w":3},{"id":"s_th_suspend3","lang":"th","cat":"account_threat","match":"บัญชีถูกอายัด","w":4},{"id":"s_th_abnormal","lang":"th","cat":"account_threat","match":"บัญชีผิดปกติ","w":3},{"id":"s_th_abnormal2","lang":"th","cat":"account_threat","match":"ตรวจพบธุรกรรมผิดปกติ","w":3},{"id":"s_en_urgent","lang":"en","cat":"urgency","match":"urgent","w":1},{"id":"s_en_actnow","lang":"en","cat":"urgency","match":"act now","w":2},{"id":"s_en_within24","lang":"en","cat":"urgency","match":"within 24 hours","w":2},{"id":"s_en_immediately","lang":"en","cat":"urgency","match":"immediately or","w":2},{"id":"s_en_limited","lang":"en","cat":"urgency","match":"limited time","w":2},{"id":"s_th_urgent","lang":"th","cat":"urgency","match":"ด่วน","w":1},{"id":"s_th_urgent2","lang":"th","cat":"urgency","match":"ภายใน 24 ชั่วโมง","w":2},{"id":"s_th_urgent3","lang":"th","cat":"urgency","match":"มิฉะนั้น","w":2},{"id":"s_th_urgent4","lang":"th","cat":"urgency","match":"ก่อนหมดเขต","w":2},{"id":"s_en_clickhere","lang":"en","cat":"click_link","match":"click here","w":3},{"id":"s_en_clicklink","lang":"en","cat":"click_link","match":"click the link","w":3},{"id":"s_en_verifyacct","lang":"en","cat":"click_link","match":"verify your account","w":3},{"id":"s_th_clicklink","lang":"th","cat":"click_link","match":"กดลิงก์","w":3},{"id":"s_th_clicklink2","lang":"th","cat":"click_link","match":"คลิกลิงก์","w":3},{"id":"s_th_clicklink3","lang":"th","cat":"click_link","match":"กดที่ลิงก์","w":3},{"id":"s_th_clicklink4","lang":"th","cat":"click_link","match":"แตะลิงก์","w":3},{"id":"s_en_winner","lang":"en","cat":"prize","match":"you are a winner","w":4},{"id":"s_en_claimprize","lang":"en","cat":"prize","match":"claim your prize","w":4},{"id":"s_en_wonprize","lang":"en","cat":"prize","match":"you have won","w":4},{"id":"s_th_prize","lang":"th","cat":"prize","match":"คุณได้รับรางวัล","w":4},{"id":"s_th_prize2","lang":"th","cat":"prize","match":"รับรางวัลฟรี","w":4},{"id":"s_th_prize3","lang":"th","cat":"prize","match":"โชคดีได้รับสิทธิ์","w":3},{"id":"s_th_freecredit","lang":"th","cat":"prize","match":"รับเครดิตฟรี","w":4},{"id":"s_en_customs","lang":"en","cat":"delivery","match":"customs fee","w":4},{"id":"s_en_redelivery","lang":"en","cat":"delivery","match":"redelivery fee","w":4},{"id":"s_en_notdelivered","lang":"en","cat":"delivery","match":"could not be delivered","w":3},{"id":"s_en_parcelheld","lang":"en","cat":"delivery","match":"parcel is held","w":3},{"id":"s_th_parcel_stuck","lang":"th","cat":"delivery","match":"พัสดุตกค้าง","w":4},{"id":"s_th_customs","lang":"th","cat":"delivery","match":"ศุลกากร","w":3},{"id":"s_th_customs_fee","lang":"th","cat":"delivery","match":"ค่าธรรมเนียมพัสดุ","w":4},{"id":"s_th_parcel_fail","lang":"th","cat":"delivery","match":"นำจ่ายไม่สำเร็จ","w":3},{"id":"s_th_parcel_addr","lang":"th","cat":"delivery","match":"ที่อยู่ไม่ถูกต้อง กรุณาอัปเดต","w":4},{"id":"s_en_preapproved","lang":"en","cat":"loan","match":"pre-approved loan","w":4},{"id":"s_en_instantloan","lang":"en","cat":"loan","match":"instant loan approval","w":4},{"id":"s_en_nocollateral","lang":"en","cat":"loan","match":"loan without collateral","w":3},{"id":"s_en_processingfee","lang":"en","cat":"loan","match":"processing fee required","w":5},{"id":"s_th_loan_fast","lang":"th","cat":"loan","match":"อนุมัติไว","w":3},{"id":"s_th_loan_nobureau","lang":"th","cat":"loan","match":"ไม่เช็คบูโร","w":5},{"id":"s_th_loan_nodoc","lang":"th","cat":"loan","match":"ไม่ต้องใช้เอกสาร","w":3},{"id":"s_th_loan_urgent","lang":"th","cat":"loan","match":"เงินด่วน","w":4},{"id":"s_th_loan_right","lang":"th","cat":"loan","match":"ได้รับสิทธิ์กู้","w":4},{"id":"s_th_loan_lowint","lang":"th","cat":"loan","match":"ดอกเบี้ยต่ำพิเศษ","w":3},{"id":"s_en_wfh","lang":"en","cat":"job","match":"work from home","w":2},{"id":"s_en_extraincome","lang":"en","cat":"job","match":"earn extra income","w":3},{"id":"s_en_noexp","lang":"en","cat":"job","match":"no experience needed","w":3},{"id":"s_en_dailypayout","lang":"en","cat":"job","match":"daily payout","w":4},{"id":"s_th_parttime","lang":"th","cat":"job","match":"งานพาร์ทไทม์","w":2},{"id":"s_th_likejob","lang":"th","cat":"job","match":"กดไลค์","w":4},{"id":"s_th_reviewjob","lang":"th","cat":"job","match":"รับงานรีวิวสินค้า","w":4},{"id":"s_th_dailyincome","lang":"th","cat":"job","match":"รายได้วันละ","w":3},{"id":"s_th_easyjob","lang":"th","cat":"job","match":"ทำที่บ้านได้","w":2},{"id":"s_th_freejob","lang":"th","cat":"job","match":"งานง่ายได้เงินไว","w":4},{"id":"s_en_guaranteed","lang":"en","cat":"investment","match":"guaranteed returns","w":4},{"id":"s_en_double","lang":"en","cat":"investment","match":"double your money","w":5},{"id":"s_en_riskfree","lang":"en","cat":"investment","match":"risk free","w":3},{"id":"s_en_cryptoinvest","lang":"en","cat":"investment","match":"crypto investment","w":2},{"id":"s_th_guarantee","lang":"th","cat":"investment","match":"การันตีผลตอบแทน","w":5},{"id":"s_th_profit_daily","lang":"th","cat":"investment","match":"กำไรวันละ","w":4},{"id":"s_th_coach","lang":"th","cat":"investment","match":"ลงทุนกับโค้ช","w":4},{"id":"s_th_invest_sure","lang":"th","cat":"investment","match":"ลงทุนไม่มีความเสี่ยง","w":5},{"id":"s_th_invest_high","lang":"th","cat":"investment","match":"ผลตอบแทนสูง","w":2},{"id":"s_th_gambling","lang":"th","cat":"gambling","match":"สมัครสมาชิกรับโบนัส","w":4},{"id":"s_th_gambling2","lang":"th","cat":"gambling","match":"ฝากถอนออโต้","w":5},{"id":"s_th_gambling3","lang":"th","cat":"gambling","match":"เว็บตรงไม่ผ่านเอเย่นต์","w":5},{"id":"s_th_gambling4","lang":"th","cat":"gambling","match":"สล็อตแตกง่าย","w":5},{"id":"s_en_thisisbank","lang":"en","cat":"impersonate_bank","match":"this is your bank","w":3},{"id":"s_en_fraudteam","lang":"en","cat":"impersonate_bank","match":"bank fraud team","w":4},{"id":"s_en_safeaccount","lang":"en","cat":"impersonate_bank","match":"safe account","w":4},{"id":"s_th_bank_notify","lang":"th","cat":"impersonate_bank","match":"ธนาคารแจ้งเตือน","w":3},{"id":"s_th_transfer_safe","lang":"th","cat":"impersonate_bank","match":"โอนเงินไปบัญชีปลอดภัย","w":5},{"id":"s_th_officer","lang":"th","cat":"impersonate_bank","match":"เจ้าหน้าที่ธนาคารติดต่อ","w":3},{"id":"s_th_gov_thaid","lang":"th","cat":"impersonate_gov","match":"thaid","w":3},{"id":"s_th_gov_revenue","lang":"th","cat":"impersonate_gov","match":"กรมสรรพากร","w":3},{"id":"s_th_gov_studentloan","lang":"th","cat":"impersonate_gov","match":"กยศ","w":3},{"id":"s_th_gov_mflow","lang":"th","cat":"impersonate_gov","match":"m-flow","w":3},{"id":"s_th_gov_post","lang":"th","cat":"impersonate_gov","match":"ไปรษณีย์ไทยแจ้ง","w":3},{"id":"s_th_gov_police","lang":"th","cat":"impersonate_gov","match":"หมายเรียกตำรวจ","w":4},{"id":"s_th_gov_dsi","lang":"th","cat":"impersonate_gov","match":"คดีฟอกเงิน","w":4},{"id":"s_th_gov_welfare","lang":"th","cat":"impersonate_gov","match":"เงินเยียวยาจากรัฐ","w":4},{"id":"s_en_friendhelp","lang":"en","cat":"personal_money","match":"your friend needs help","w":3},{"id":"s_en_borrow","lang":"en","cat":"personal_money","match":"borrow money urgently","w":4},{"id":"s_en_newnumber","lang":"en","cat":"personal_money","match":"changed my number","w":3},{"id":"s_th_borrow","lang":"th","cat":"personal_money","match":"ขอยืมเงินด่วน","w":4},{"id":"s_th_newnumber","lang":"th","cat":"personal_money","match":"เปลี่ยนเบอร์ใหม่","w":3},{"id":"s_en_installapp","lang":"en","cat":"app_install","match":"install the app to verify","w":4},{"id":"s_th_installapp","lang":"th","cat":"app_install","match":"ติดตั้งแอป","w":3},{"id":"s_th_installapp2","lang":"th","cat":"app_install","match":"ดาวน์โหลดแอปเพื่อยืนยัน","w":5},{"id":"s_th_allowinstall","lang":"th","cat":"app_install","match":"อนุญาตติดตั้งจากแหล่งที่ไม่รู้จัก","w":5},{"id":"s_en_addline","lang":"en","cat":"add_line","match":"add this line id","w":4},{"id":"s_th_addline","lang":"th","cat":"add_line","match":"แอดไลน์","w":4},{"id":"s_th_addline2","lang":"th","cat":"add_line","match":"ทักไลน์","w":4},{"id":"s_th_addline3","lang":"th","cat":"add_line","match":"ทักแชทมาที่","w":3},{"id":"s_en_taxrefund","lang":"en","cat":"refund_claim","match":"eligible for a refund","w":4},{"id":"s_en_govgrant","lang":"en","cat":"refund_claim","match":"government grant","w":4},{"id":"s_th_taxrefund","lang":"th","cat":"refund_claim","match":"ขอคืนภาษี","w":3},{"id":"s_th_refund_right","lang":"th","cat":"refund_claim","match":"ได้รับสิทธิ์เงินคืน","w":4},{"id":"s_th_wrongtransfer","lang":"th","cat":"refund_claim","match":"โอนผิด","w":3}],"legit":[{"id":"l_en_txn_ok","lang":"en","cat":"txn_confirm","match":"transaction successful","w":3},{"id":"l_en_credited","lang":"en","cat":"txn_confirm","match":"amount credited","w":3},{"id":"l_en_payment_recv","lang":"en","cat":"txn_confirm","match":"payment received","w":3},{"id":"l_en_successat","lang":"en","cat":"txn_confirm","match":"was successful at","w":3},{"id":"l_en_purchase","lang":"en","cat":"txn_confirm","match":"purchase confirmed","w":3},{"id":"l_th_txn_ok","lang":"th","cat":"txn_confirm","match":"ทำรายการสำเร็จ","w":3},{"id":"l_th_credited","lang":"th","cat":"txn_confirm","match":"ยอดโอนเข้า","w":3},{"id":"l_th_credited2","lang":"th","cat":"txn_confirm","match":"ยอดเงินเข้าบัญชี","w":3},{"id":"l_th_credited3","lang":"th","cat":"txn_confirm","match":"เงินเข้าบัญชี","w":3},{"id":"l_th_spent","lang":"th","cat":"txn_confirm","match":"ยอดใช้จ่าย","w":3},{"id":"l_th_paid","lang":"th","cat":"txn_confirm","match":"ชำระเงินเรียบร้อย","w":3},{"id":"l_th_slip","lang":"th","cat":"txn_confirm","match":"สลิปโอนเงิน","w":2},{"id":"l_en_balance","lang":"en","cat":"balance","match":"your balance","w":2},{"id":"l_en_availbal","lang":"en","cat":"balance","match":"available balance","w":2},{"id":"l_th_balance","lang":"th","cat":"balance","match":"คงเหลือ","w":2},{"id":"l_th_balance2","lang":"th","cat":"balance","match":"ยอดคงเหลือ","w":3},{"id":"l_en_statement","lang":"en","cat":"statement","match":"statement is ready","w":3},{"id":"l_en_billpay","lang":"en","cat":"statement","match":"bill payment successful","w":3},{"id":"l_en_refnum","lang":"en","cat":"statement","match":"reference number","w":2},{"id":"l_th_statement","lang":"th","cat":"statement","match":"ใบแจ้งยอด","w":3},{"id":"l_th_refnum","lang":"th","cat":"statement","match":"เลขที่อ้างอิง","w":2},{"id":"l_en_noreply","lang":"en","cat":"automated","match":"do not reply","w":2},{"id":"l_en_automated","lang":"en","cat":"automated","match":"this is an automated message","w":2},{"id":"l_th_noreply","lang":"th","cat":"automated","match":"ข้อความอัตโนมัติ","w":2},{"id":"l_th_noreply2","lang":"th","cat":"automated","match":"ไม่ต้องตอบกลับ","w":2},{"id":"l_en_neverask","lang":"en","cat":"security_advice","match":"we will never ask","w":4},{"id":"l_en_nevershare","lang":"en","cat":"security_advice","match":"never share your otp","w":4},{"id":"l_en_donotshare","lang":"en","cat":"security_advice","match":"do not share it with anyone","w":4},{"id":"l_th_neverask","lang":"th","cat":"security_advice","match":"ธนาคารไม่มีนโยบายขอ","w":5},{"id":"l_th_nevershare","lang":"th","cat":"security_advice","match":"ห้ามบอกผู้อื่น","w":4},{"id":"l_th_nevershare2","lang":"th","cat":"security_advice","match":"ห้ามเปิดเผยรหัส","w":4},{"id":"l_th_callcenter","lang":"th","cat":"security_advice","match":"โทรติดต่อคอลเซ็นเตอร์","w":2},{"id":"l_en_otp_is","lang":"en","cat":"otp_delivery","match":"your one time password is","w":4},{"id":"l_en_otp_is2","lang":"en","cat":"otp_delivery","match":"your otp is","w":4},{"id":"l_en_otp_is3","lang":"en","cat":"otp_delivery","match":"verification code is","w":4},{"id":"l_th_otp_is","lang":"th","cat":"otp_delivery","match":"รหัส otp ของคุณคือ","w":4},{"id":"l_th_otp_is2","lang":"th","cat":"otp_delivery","match":"รหัสยืนยันคือ","w":4},{"id":"l_th_otp_ref","lang":"th","cat":"otp_delivery","match":"ref:","w":1},{"id":"l_en_maint","lang":"en","cat":"maintenance","match":"scheduled maintenance","w":3},{"id":"l_th_maint","lang":"th","cat":"maintenance","match":"ปิดปรับปรุงระบบ","w":3},{"id":"l_th_maint2","lang":"th","cat":"maintenance","match":"งดให้บริการชั่วคราว","w":3}],"risk":[{"id":"r_shortlink","cat":"link_short","regex":"bit\\.ly|tinyurl|goo\\.gl|is\\.gd|cutt\\.ly|shorturl|t\\.ly|rb\\.gy","flags":"i","w":4},{"id":"r_apk","cat":"link_apk","regex":"\\.apk\\b|\\.ipa\\b","flags":"i","w":5},{"id":"r_punct","cat":"punct","regex":"[!]{2,}","flags":"","w":1}],"linkCheck":{"enabled":true,"weightUntrusted":4,"note":"โดเมนที่ไม่อยู่ในรายการนี้ + ข้อความอ้างถึงธนาคาร/หน่วยงานรัฐ = สัญญาณแรง เพิ่มโดเมนของลูกค้าเองได้","trustedDomains":["scb.co.th","kasikornbank.com","kbank.co.th","bangkokbank.com","krungsri.com","krungthai.com","ktb.co.th","ttbbank.com","uob.co.th","gsb.or.th","baac.or.th","citibank.co.th","cimbthai.com","lhbank.co.th","tisco.co.th","kkpfg.com","thaipost.co.th","rd.go.th","dopa.go.th","studentloan.or.th","mflowthai.com","promptpay.io","bot.or.th"],"bankMentions":["kbank","scb","krungthai","krungsri","bangkok bank","ttb","uob","gsb","ธนาคาร","กรุงไทย","กสิกร","ไทยพาณิชย์","กรุงเทพ","กรุงศรี","ออมสิน","สรรพากร","กยศ","ไปรษณีย์","ศุลกากร","thaid","m-flow"]}};
+  const patterns = {"version":"0.5.0","updated":"2026-08-11","note":"แก้ไฟล์นี้เพื่อเพิ่ม/ลบ wording ได้เลย ไม่ต้องแตะโค้ด | w = น้ำหนัก 1-5 | cat = หมวด (นับสูงสุด 1 ครั้งต่อหมวด กันคะแนนเฟ้อ)","thresholds":{"scamMargin":4,"legitMargin":2,"strength":{"medium":5,"high":9}},"negations":{"en":["do not","don't","dont","never","will never","won't","wont","no need to","we do not","we don't"],"th":["ห้าม","อย่า","ไม่ควร","จะไม่","ไม่มีนโยบาย","ไม่ได้ขอ","ไม่เคยขอ"]},"negationWindow":{"en":34,"th":26},"categories":{"otp_request":{"en":"asks for your OTP","th":"ขอรหัส OTP จากคุณ"},"credential_request":{"en":"asks for password / PIN / bank details","th":"ขอรหัสผ่าน PIN หรือข้อมูลบัญชี"},"account_threat":{"en":"threatens to suspend the account","th":"ขู่ว่าบัญชีจะถูกระงับ"},"urgency":{"en":"artificial urgency","th":"เร่งรัดให้รีบทำ"},"click_link":{"en":"pushes you to click a link","th":"ผลักให้กดลิงก์"},"prize":{"en":"unsolicited prize or reward","th":"อ้างว่าได้รางวัลโดยไม่ได้สมัคร"},"delivery":{"en":"fake parcel / customs fee","th":"อ้างพัสดุตกค้าง เก็บค่าธรรมเนียม"},"loan":{"en":"suspicious loan offer","th":"เสนอเงินกู้ผิดปกติ"},"job":{"en":"suspicious job offer","th":"ชวนทำงานรายได้ง่ายผิดปกติ"},"investment":{"en":"investment scam pitch","th":"ชวนลงทุนแบบการันตีผลตอบแทน"},"gambling":{"en":"online gambling pitch","th":"ชวนเล่นพนันออนไลน์"},"impersonate_bank":{"en":"impersonates a bank","th":"แอบอ้างเป็นธนาคาร"},"impersonate_gov":{"en":"impersonates a government agency","th":"แอบอ้างเป็นหน่วยงานรัฐ"},"personal_money":{"en":"someone you know asking for money","th":"อ้างเป็นคนรู้จักขอยืมเงิน"},"app_install":{"en":"tells you to install an app","th":"ให้ติดตั้งแอปพลิเคชัน"},"add_line":{"en":"asks you to add a LINE account","th":"ให้แอด LINE"},"refund_claim":{"en":"fake refund / grant","th":"อ้างเงินคืนหรือเงินช่วยเหลือ"},"txn_confirm":{"en":"transaction confirmation","th":"แจ้งผลทำรายการสำเร็จ"},"balance":{"en":"balance notification","th":"แจ้งยอดคงเหลือ"},"statement":{"en":"statement or bill notice","th":"แจ้งใบแจ้งยอด"},"automated":{"en":"standard automated notice","th":"ข้อความอัตโนมัติมาตรฐาน"},"security_advice":{"en":"genuine bank security advice","th":"คำเตือนความปลอดภัยของธนาคาร"},"otp_delivery":{"en":"delivers an OTP to you","th":"ส่งรหัส OTP มาให้คุณ"},"maintenance":{"en":"service maintenance notice","th":"แจ้งปิดปรับปรุงระบบ"},"link_short":{"en":"shortened link","th":"ลิงก์ย่อ"},"link_untrusted":{"en":"link to a non-bank domain","th":"ลิงก์ไปโดเมนที่ไม่ใช่ของธนาคาร"},"link_apk":{"en":"link to an installable app file","th":"ลิงก์ไฟล์ติดตั้งแอป"},"punct":{"en":"excessive urgency punctuation","th":"เครื่องหมายเร่งเร้าเกินปกติ"},"negation_spam":{"en":"padded with denial phrases to hide scam wording","th":"ยัดคำปฏิเสธเพื่อกลบคำที่เข้าข่ายสแกม"}},"scam":[{"id":"s_en_send_otp","lang":"en","cat":"otp_request","match":"send your otp","w":5},{"id":"s_en_share_otp","lang":"en","cat":"otp_request","match":"share your otp","w":5},{"id":"s_en_provide_otp","lang":"en","cat":"otp_request","match":"provide the otp","w":5},{"id":"s_en_confirm_otp","lang":"en","cat":"otp_request","match":"reply with the code","w":4},{"id":"s_th_send_otp","lang":"th","cat":"otp_request","match":"ส่ง otp","w":5},{"id":"s_th_send_otp2","lang":"th","cat":"otp_request","match":"ส่งรหัส otp","w":5},{"id":"s_th_tell_otp","lang":"th","cat":"otp_request","match":"แจ้งรหัส otp","w":5},{"id":"s_th_tell_otp2","lang":"th","cat":"otp_request","match":"บอกรหัส otp","w":5},{"id":"s_en_bank_details","lang":"en","cat":"credential_request","match":"send your bank details","w":5},{"id":"s_en_share_pw","lang":"en","cat":"credential_request","match":"share your password","w":5},{"id":"s_en_share_pin","lang":"en","cat":"credential_request","match":"share your pin","w":5},{"id":"s_en_confirm_card","lang":"en","cat":"credential_request","match":"confirm your card number","w":5},{"id":"s_th_fill_info","lang":"th","cat":"credential_request","match":"กรอกข้อมูลส่วนตัว","w":4},{"id":"s_th_fill_bank","lang":"th","cat":"credential_request","match":"กรอกเลขบัญชี","w":4},{"id":"s_th_fill_pw","lang":"th","cat":"credential_request","match":"กรอกรหัสผ่าน","w":5},{"id":"s_th_confirm_id","lang":"th","cat":"credential_request","match":"ยืนยันตัวตน","w":3},{"id":"s_th_confirm_info","lang":"th","cat":"credential_request","match":"ยืนยันข้อมูล","w":3},{"id":"s_en_suspend","lang":"en","cat":"account_threat","match":"will be suspended","w":4},{"id":"s_en_locked","lang":"en","cat":"account_threat","match":"account has been locked","w":4},{"id":"s_en_frozen","lang":"en","cat":"account_threat","match":"account is frozen","w":4},{"id":"s_en_unusual","lang":"en","cat":"account_threat","match":"unusual activity detected","w":2},{"id":"s_th_suspend","lang":"th","cat":"account_threat","match":"บัญชีจะถูกระงับ","w":4},{"id":"s_th_suspend2","lang":"th","cat":"account_threat","match":"ระงับการใช้งาน","w":3},{"id":"s_th_suspend3","lang":"th","cat":"account_threat","match":"บัญชีถูกอายัด","w":4},{"id":"s_th_abnormal","lang":"th","cat":"account_threat","match":"บัญชีผิดปกติ","w":3},{"id":"s_th_abnormal2","lang":"th","cat":"account_threat","match":"ตรวจพบธุรกรรมผิดปกติ","w":3},{"id":"s_en_urgent","lang":"en","cat":"urgency","match":"urgent","w":1},{"id":"s_en_actnow","lang":"en","cat":"urgency","match":"act now","w":2},{"id":"s_en_within24","lang":"en","cat":"urgency","match":"within 24 hours","w":2},{"id":"s_en_immediately","lang":"en","cat":"urgency","match":"immediately or","w":2},{"id":"s_en_limited","lang":"en","cat":"urgency","match":"limited time","w":2},{"id":"s_th_urgent","lang":"th","cat":"urgency","match":"ด่วน","w":1},{"id":"s_th_urgent2","lang":"th","cat":"urgency","match":"ภายใน 24 ชั่วโมง","w":2},{"id":"s_th_urgent3","lang":"th","cat":"urgency","match":"มิฉะนั้น","w":2},{"id":"s_th_urgent4","lang":"th","cat":"urgency","match":"ก่อนหมดเขต","w":2},{"id":"s_en_clickhere","lang":"en","cat":"click_link","match":"click here","w":3},{"id":"s_en_clicklink","lang":"en","cat":"click_link","match":"click the link","w":3},{"id":"s_en_verifyacct","lang":"en","cat":"click_link","match":"verify your account","w":3},{"id":"s_th_clicklink","lang":"th","cat":"click_link","match":"กดลิงก์","w":3},{"id":"s_th_clicklink2","lang":"th","cat":"click_link","match":"คลิกลิงก์","w":3},{"id":"s_th_clicklink3","lang":"th","cat":"click_link","match":"กดที่ลิงก์","w":3},{"id":"s_th_clicklink4","lang":"th","cat":"click_link","match":"แตะลิงก์","w":3},{"id":"s_en_winner","lang":"en","cat":"prize","match":"you are a winner","w":4},{"id":"s_en_claimprize","lang":"en","cat":"prize","match":"claim your prize","w":4},{"id":"s_en_wonprize","lang":"en","cat":"prize","match":"you have won","w":4},{"id":"s_th_prize","lang":"th","cat":"prize","match":"คุณได้รับรางวัล","w":4},{"id":"s_th_prize2","lang":"th","cat":"prize","match":"รับรางวัลฟรี","w":4},{"id":"s_th_prize3","lang":"th","cat":"prize","match":"โชคดีได้รับสิทธิ์","w":3},{"id":"s_th_freecredit","lang":"th","cat":"prize","match":"รับเครดิตฟรี","w":4},{"id":"s_en_customs","lang":"en","cat":"delivery","match":"customs fee","w":4},{"id":"s_en_redelivery","lang":"en","cat":"delivery","match":"redelivery fee","w":4},{"id":"s_en_notdelivered","lang":"en","cat":"delivery","match":"could not be delivered","w":3},{"id":"s_en_parcelheld","lang":"en","cat":"delivery","match":"parcel is held","w":3},{"id":"s_th_parcel_stuck","lang":"th","cat":"delivery","match":"พัสดุตกค้าง","w":4},{"id":"s_th_customs","lang":"th","cat":"delivery","match":"ศุลกากร","w":3},{"id":"s_th_customs_fee","lang":"th","cat":"delivery","match":"ค่าธรรมเนียมพัสดุ","w":4},{"id":"s_th_parcel_fail","lang":"th","cat":"delivery","match":"นำจ่ายไม่สำเร็จ","w":3},{"id":"s_th_parcel_addr","lang":"th","cat":"delivery","match":"ที่อยู่ไม่ถูกต้อง กรุณาอัปเดต","w":4},{"id":"s_en_preapproved","lang":"en","cat":"loan","match":"pre-approved loan","w":4},{"id":"s_en_instantloan","lang":"en","cat":"loan","match":"instant loan approval","w":4},{"id":"s_en_nocollateral","lang":"en","cat":"loan","match":"loan without collateral","w":3},{"id":"s_en_processingfee","lang":"en","cat":"loan","match":"processing fee required","w":5},{"id":"s_th_loan_fast","lang":"th","cat":"loan","match":"อนุมัติไว","w":3},{"id":"s_th_loan_nobureau","lang":"th","cat":"loan","match":"ไม่เช็คบูโร","w":5},{"id":"s_th_loan_nodoc","lang":"th","cat":"loan","match":"ไม่ต้องใช้เอกสาร","w":3},{"id":"s_th_loan_urgent","lang":"th","cat":"loan","match":"เงินด่วน","w":4},{"id":"s_th_loan_right","lang":"th","cat":"loan","match":"ได้รับสิทธิ์กู้","w":4},{"id":"s_th_loan_lowint","lang":"th","cat":"loan","match":"ดอกเบี้ยต่ำพิเศษ","w":3},{"id":"s_en_wfh","lang":"en","cat":"job","match":"work from home","w":2},{"id":"s_en_extraincome","lang":"en","cat":"job","match":"earn extra income","w":3},{"id":"s_en_noexp","lang":"en","cat":"job","match":"no experience needed","w":3},{"id":"s_en_dailypayout","lang":"en","cat":"job","match":"daily payout","w":4},{"id":"s_th_parttime","lang":"th","cat":"job","match":"งานพาร์ทไทม์","w":2},{"id":"s_th_likejob","lang":"th","cat":"job","match":"กดไลค์","w":4},{"id":"s_th_reviewjob","lang":"th","cat":"job","match":"รับงานรีวิวสินค้า","w":4},{"id":"s_th_dailyincome","lang":"th","cat":"job","match":"รายได้วันละ","w":3},{"id":"s_th_easyjob","lang":"th","cat":"job","match":"ทำที่บ้านได้","w":2},{"id":"s_th_freejob","lang":"th","cat":"job","match":"งานง่ายได้เงินไว","w":4},{"id":"s_en_guaranteed","lang":"en","cat":"investment","match":"guaranteed returns","w":4},{"id":"s_en_double","lang":"en","cat":"investment","match":"double your money","w":5},{"id":"s_en_riskfree","lang":"en","cat":"investment","match":"risk free","w":3},{"id":"s_en_cryptoinvest","lang":"en","cat":"investment","match":"crypto investment","w":2},{"id":"s_th_guarantee","lang":"th","cat":"investment","match":"การันตีผลตอบแทน","w":5},{"id":"s_th_profit_daily","lang":"th","cat":"investment","match":"กำไรวันละ","w":4},{"id":"s_th_coach","lang":"th","cat":"investment","match":"ลงทุนกับโค้ช","w":4},{"id":"s_th_invest_sure","lang":"th","cat":"investment","match":"ลงทุนไม่มีความเสี่ยง","w":5},{"id":"s_th_invest_high","lang":"th","cat":"investment","match":"ผลตอบแทนสูง","w":2},{"id":"s_th_gambling","lang":"th","cat":"gambling","match":"สมัครสมาชิกรับโบนัส","w":4},{"id":"s_th_gambling2","lang":"th","cat":"gambling","match":"ฝากถอนออโต้","w":5},{"id":"s_th_gambling3","lang":"th","cat":"gambling","match":"เว็บตรงไม่ผ่านเอเย่นต์","w":5},{"id":"s_th_gambling4","lang":"th","cat":"gambling","match":"สล็อตแตกง่าย","w":5},{"id":"s_en_thisisbank","lang":"en","cat":"impersonate_bank","match":"this is your bank","w":3},{"id":"s_en_fraudteam","lang":"en","cat":"impersonate_bank","match":"bank fraud team","w":4},{"id":"s_en_safeaccount","lang":"en","cat":"impersonate_bank","match":"safe account","w":4},{"id":"s_th_bank_notify","lang":"th","cat":"impersonate_bank","match":"ธนาคารแจ้งเตือน","w":3},{"id":"s_th_transfer_safe","lang":"th","cat":"impersonate_bank","match":"โอนเงินไปบัญชีปลอดภัย","w":5},{"id":"s_th_officer","lang":"th","cat":"impersonate_bank","match":"เจ้าหน้าที่ธนาคารติดต่อ","w":3},{"id":"s_th_gov_thaid","lang":"th","cat":"impersonate_gov","match":"thaid","w":3},{"id":"s_th_gov_revenue","lang":"th","cat":"impersonate_gov","match":"กรมสรรพากร","w":3},{"id":"s_th_gov_studentloan","lang":"th","cat":"impersonate_gov","match":"กยศ","w":3},{"id":"s_th_gov_mflow","lang":"th","cat":"impersonate_gov","match":"m-flow","w":3},{"id":"s_th_gov_post","lang":"th","cat":"impersonate_gov","match":"ไปรษณีย์ไทยแจ้ง","w":3},{"id":"s_th_gov_police","lang":"th","cat":"impersonate_gov","match":"หมายเรียกตำรวจ","w":4},{"id":"s_th_gov_dsi","lang":"th","cat":"impersonate_gov","match":"คดีฟอกเงิน","w":4},{"id":"s_th_gov_welfare","lang":"th","cat":"impersonate_gov","match":"เงินเยียวยาจากรัฐ","w":4},{"id":"s_en_friendhelp","lang":"en","cat":"personal_money","match":"your friend needs help","w":3},{"id":"s_en_borrow","lang":"en","cat":"personal_money","match":"borrow money urgently","w":4},{"id":"s_en_newnumber","lang":"en","cat":"personal_money","match":"changed my number","w":3},{"id":"s_th_borrow","lang":"th","cat":"personal_money","match":"ขอยืมเงินด่วน","w":4},{"id":"s_th_newnumber","lang":"th","cat":"personal_money","match":"เปลี่ยนเบอร์ใหม่","w":3},{"id":"s_en_installapp","lang":"en","cat":"app_install","match":"install the app to verify","w":4},{"id":"s_th_installapp","lang":"th","cat":"app_install","match":"ติดตั้งแอป","w":3},{"id":"s_th_installapp2","lang":"th","cat":"app_install","match":"ดาวน์โหลดแอปเพื่อยืนยัน","w":5},{"id":"s_th_allowinstall","lang":"th","cat":"app_install","match":"อนุญาตติดตั้งจากแหล่งที่ไม่รู้จัก","w":5},{"id":"s_en_addline","lang":"en","cat":"add_line","match":"add this line id","w":4},{"id":"s_th_addline","lang":"th","cat":"add_line","match":"แอดไลน์","w":4},{"id":"s_th_addline2","lang":"th","cat":"add_line","match":"ทักไลน์","w":4},{"id":"s_th_addline3","lang":"th","cat":"add_line","match":"ทักแชทมาที่","w":3},{"id":"s_en_taxrefund","lang":"en","cat":"refund_claim","match":"eligible for a refund","w":4},{"id":"s_en_govgrant","lang":"en","cat":"refund_claim","match":"government grant","w":4},{"id":"s_th_taxrefund","lang":"th","cat":"refund_claim","match":"ขอคืนภาษี","w":3},{"id":"s_th_refund_right","lang":"th","cat":"refund_claim","match":"ได้รับสิทธิ์เงินคืน","w":4},{"id":"s_th_wrongtransfer","lang":"th","cat":"refund_claim","match":"โอนผิด","w":3}],"legit":[{"id":"l_en_txn_ok","lang":"en","cat":"txn_confirm","match":"transaction successful","w":3},{"id":"l_en_credited","lang":"en","cat":"txn_confirm","match":"amount credited","w":3},{"id":"l_en_payment_recv","lang":"en","cat":"txn_confirm","match":"payment received","w":3},{"id":"l_en_successat","lang":"en","cat":"txn_confirm","match":"was successful at","w":3},{"id":"l_en_purchase","lang":"en","cat":"txn_confirm","match":"purchase confirmed","w":3},{"id":"l_th_txn_ok","lang":"th","cat":"txn_confirm","match":"ทำรายการสำเร็จ","w":3},{"id":"l_th_credited","lang":"th","cat":"txn_confirm","match":"ยอดโอนเข้า","w":3},{"id":"l_th_credited2","lang":"th","cat":"txn_confirm","match":"ยอดเงินเข้าบัญชี","w":3},{"id":"l_th_credited3","lang":"th","cat":"txn_confirm","match":"เงินเข้าบัญชี","w":3},{"id":"l_th_spent","lang":"th","cat":"txn_confirm","match":"ยอดใช้จ่าย","w":3},{"id":"l_th_paid","lang":"th","cat":"txn_confirm","match":"ชำระเงินเรียบร้อย","w":3},{"id":"l_th_slip","lang":"th","cat":"txn_confirm","match":"สลิปโอนเงิน","w":2},{"id":"l_en_balance","lang":"en","cat":"balance","match":"your balance","w":2},{"id":"l_en_availbal","lang":"en","cat":"balance","match":"available balance","w":2},{"id":"l_th_balance","lang":"th","cat":"balance","match":"คงเหลือ","w":2},{"id":"l_th_balance2","lang":"th","cat":"balance","match":"ยอดคงเหลือ","w":3},{"id":"l_en_statement","lang":"en","cat":"statement","match":"statement is ready","w":3},{"id":"l_en_billpay","lang":"en","cat":"statement","match":"bill payment successful","w":3},{"id":"l_en_refnum","lang":"en","cat":"statement","match":"reference number","w":2},{"id":"l_th_statement","lang":"th","cat":"statement","match":"ใบแจ้งยอด","w":3},{"id":"l_th_refnum","lang":"th","cat":"statement","match":"เลขที่อ้างอิง","w":2},{"id":"l_en_noreply","lang":"en","cat":"automated","match":"do not reply","w":2},{"id":"l_en_automated","lang":"en","cat":"automated","match":"this is an automated message","w":2},{"id":"l_th_noreply","lang":"th","cat":"automated","match":"ข้อความอัตโนมัติ","w":2},{"id":"l_th_noreply2","lang":"th","cat":"automated","match":"ไม่ต้องตอบกลับ","w":2},{"id":"l_en_neverask","lang":"en","cat":"security_advice","match":"we will never ask","w":4},{"id":"l_en_nevershare","lang":"en","cat":"security_advice","match":"never share your otp","w":4},{"id":"l_en_donotshare","lang":"en","cat":"security_advice","match":"do not share it with anyone","w":4},{"id":"l_th_neverask","lang":"th","cat":"security_advice","match":"ธนาคารไม่มีนโยบายขอ","w":5},{"id":"l_th_nevershare","lang":"th","cat":"security_advice","match":"ห้ามบอกผู้อื่น","w":4},{"id":"l_th_nevershare2","lang":"th","cat":"security_advice","match":"ห้ามเปิดเผยรหัส","w":4},{"id":"l_th_callcenter","lang":"th","cat":"security_advice","match":"โทรติดต่อคอลเซ็นเตอร์","w":2},{"id":"l_en_otp_is","lang":"en","cat":"otp_delivery","match":"your one time password is","w":4},{"id":"l_en_otp_is2","lang":"en","cat":"otp_delivery","match":"your otp is","w":4},{"id":"l_en_otp_is3","lang":"en","cat":"otp_delivery","match":"verification code is","w":4},{"id":"l_th_otp_is","lang":"th","cat":"otp_delivery","match":"รหัส otp ของคุณคือ","w":4},{"id":"l_th_otp_is2","lang":"th","cat":"otp_delivery","match":"รหัสยืนยันคือ","w":4},{"id":"l_th_otp_ref","lang":"th","cat":"otp_delivery","match":"ref:","w":1},{"id":"l_en_maint","lang":"en","cat":"maintenance","match":"scheduled maintenance","w":3},{"id":"l_th_maint","lang":"th","cat":"maintenance","match":"ปิดปรับปรุงระบบ","w":3},{"id":"l_th_maint2","lang":"th","cat":"maintenance","match":"งดให้บริการชั่วคราว","w":3}],"risk":[{"id":"r_shortlink","cat":"link_short","regex":"bit\\.ly|tinyurl|goo\\.gl|is\\.gd|cutt\\.ly|shorturl|t\\.ly|rb\\.gy","flags":"i","w":4},{"id":"r_apk","cat":"link_apk","regex":"\\.apk\\b|\\.ipa\\b","flags":"i","w":5},{"id":"r_punct","cat":"punct","regex":"[!]{2,}","flags":"","w":1}],"linkCheck":{"enabled":true,"weightUntrusted":4,"note":"โดเมนที่ไม่อยู่ใน trustedDomains + ข้อความอ้างถึงธนาคาร/หน่วยงานรัฐ = สัญญาณแรง | tldAllow ใช้ตัดสินว่า \"คำ.คำ\" ที่ไม่มี http:// และไม่มี path เป็นลิงก์จริงหรือแค่ชื่อไฟล์/ประโยคที่ช่องว่างหาย","trustedDomains":["scb.co.th","kasikornbank.com","kbank.co.th","bangkokbank.com","krungsri.com","krungthai.com","ktb.co.th","ttbbank.com","uob.co.th","gsb.or.th","baac.or.th","citibank.co.th","cimbthai.com","lhbank.co.th","tisco.co.th","kkpfg.com","thaipost.co.th","rd.go.th","dopa.go.th","studentloan.or.th","mflowthai.com","promptpay.io","bot.or.th"],"bankMentions":["kbank","scb","krungthai","krungsri","bangkok bank","ttb","uob","gsb","ธนาคาร","กรุงไทย","กสิกร","ไทยพาณิชย์","กรุงเทพ","กรุงศรี","ออมสิน","สรรพากร","กยศ","ไปรษณีย์","ศุลกากร","thaid","m-flow"],"tldAllow":["com","net","org","info","biz","co","io","cc","tv","app","dev","page","cloud","space","website","xyz","top","site","online","shop","store","click","link","live","vip","club","icu","cyou","fun","life","today","asia","pro","mobi","tech","work","win","host","press","digital","agency","group","world","center","support","services","email","cash","money","bank","finance","credit","loan","th","jp","kr","cn","sg","ph","vn","hk","tw","au","uk","de","fr","es","nl","se","dk","pl","br","mx","ru","ca","ch","cz","kh","la","mm","np","lk","ae","sa","tr","za","ly","gl","gd","gs","sh","st","ws"],"fileExtDeny":["pdf","jpg","jpeg","png","gif","webp","apk","ipa","zip","rar","doc","docx","xls","xlsx","ppt","pptx","csv","txt","htm","html","exe","dmg","mov","mp4","mp3"]},"negatableCats":["otp_request","credential_request","click_link","personal_money","app_install","add_line"],"negationGuard":{"threshold":3,"w":3,"note":"พบคำปฏิเสธแยกกันตั้งแต่ n กลุ่มขึ้นไป = จงใจยัดคำปฏิเสธ ปิดการปฏิเสธทั้งข้อความแล้วนับเป็นสัญญาณอันตราย"}};
   engine = createEngine(patterns);
   const count = patterns.scam.length + patterns.legit.length + patterns.risk.length;
   $('statBuild').textContent = 'Build: v' + patterns.version;
@@ -514,8 +617,11 @@ try {
 /* ---------- i18n ---------- */
 function applyLang() {
   const t = T[lang];
+  // โหมด proxy ส่งภาพออกนอกเครื่องจริง ข้อความ privacy จึงต้องเปลี่ยนตาม
+  // ไม่ใช่แค่ ocrNote — ปล่อยให้ข้อความหลักบอกว่า "ไม่ส่งไปที่ใด" คือการโกหกผู้ใช้
+  const cloud = Boolean(OCR.proxyUrl);
   $('tagline').textContent = t.tagline;
-  $('privacyNote').textContent = t.privacy;
+  $('privacyNote').textContent = cloud ? t.privacyCloud : t.privacy;
   $('inputLabel').textContent = t.inputLabel;
   $('msgInput').placeholder = t.placeholder;
   $('charWord').textContent = t.charWord;
@@ -539,9 +645,9 @@ function applyLang() {
   how.appendChild(cav);
 
   $('ocrHead').textContent = t.ocrHead;
-  $('ocrHint').textContent = t.ocrHint;
+  $('ocrHint').textContent = cloud ? t.ocrHintCloud : t.ocrHint;
   $('ocrPick').textContent = t.ocrPick;
-  $('ocrNote').textContent = OCR.proxyUrl ? t.ocrPrivacyCloud : t.ocrNote;
+  $('ocrNote').textContent = cloud ? t.ocrPrivacyCloud : t.ocrNote;
 
   const row = $('exampleRow');
   row.innerHTML = '';
@@ -709,6 +815,7 @@ function loadTesseract() {
   tesseractLoading = new Promise((resolve, reject) => {
     const s = document.createElement('script');
     s.src = OCR.cdn;
+    if (OCR.cdnIntegrity) { s.integrity = OCR.cdnIntegrity; s.crossOrigin = 'anonymous'; }
     // กันกรณี CDN ค้างไม่ตอบ ซึ่งจะไม่ยิงทั้ง onload และ onerror
     const timer = setTimeout(() => { s.remove(); reject(new Error('timeout')); }, 30000);
     s.onload = () => { clearTimeout(timer); window.Tesseract ? resolve(window.Tesseract) : reject(new Error('no global')); };

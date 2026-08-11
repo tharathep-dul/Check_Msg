@@ -1,6 +1,6 @@
 {
   "name": "chekmsg",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Banking fraud screener — rules-based, client-side only",
   "type": "module",
   "private": true,

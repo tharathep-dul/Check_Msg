@@ -3,6 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!--
+  จำกัดปลายทางที่หน้านี้ติดต่อได้ ให้เหลือเท่าที่ใช้จริง
+  ผู้ใช้วาง SMS ธนาคารลงในหน้านี้ ถ้ามีสคริปต์แปลกปลอมเข้ามาได้ CSP คือด่านที่กันไม่ให้ส่งข้อมูลออก
+
+  ตั้ง OCR.proxyUrl เป็นโดเมนอื่นเมื่อไร ต้องเติมโดเมนนั้นใน connect-src ด้วย ไม่งั้น OCR จะพัง
+  frame-ancestors ใส่ใน meta ไม่มีผล ถ้าอยากกัน clickjacking ต้องตั้งเป็น header ที่ nginx
+-->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net;
+  worker-src blob:;
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' data: blob:;
+  connect-src 'self' https://cdn.jsdelivr.net https://tessdata.projectnaptha.com;
+  form-action 'none';
+  base-uri 'none';
+  object-src 'none'">
 <title>ChekMsg — Banking Fraud Screener</title>
 <style>
   :root{
@@ -177,6 +194,7 @@ const T = {
   en: {
     tagline: 'Paste any bank SMS, LINE message, or notification below and get an instant read on whether it looks like a scam.',
     privacy: 'Everything runs inside your browser. Your message is never uploaded, stored, or sent anywhere.',
+    privacyCloud: 'The scam check runs inside your browser — your text is never uploaded. Screenshots are the one exception: reading text from an image is done by an external service, so any image you pick is sent there.',
     inputLabel: 'Message to check',
     placeholder: 'e.g. Your account will be suspended. Verify your identity now by clicking the link...',
     charWord: 'characters',
@@ -214,6 +232,7 @@ const T = {
     caveat: 'This is a rules-based screener, not an AI model and not a guarantee. It has no way to detect a scam whose wording it has never seen. Treat "Likely Legit" as "no red flags found", not as "safe".',
     ocrHead: 'Have a screenshot instead?',
     ocrHint: 'Drop an image here, paste one with Ctrl+V, or pick a file. The text is read inside your browser — the image is never uploaded.',
+    ocrHintCloud: 'Drop an image here, paste one with Ctrl+V, or pick a file. The image is sent to an external service to have its text read.',
     ocrPick: 'Choose an image',
     ocrLoading: 'Loading the text reader (first time only, may take a while)…',
     ocrReading: 'Reading the image…',
@@ -229,6 +248,7 @@ const T = {
   th: {
     tagline: 'วางข้อความ SMS, LINE หรือการแจ้งเตือนจากธนาคาร แล้วดูว่าเข้าข่ายสแกมหรือไม่',
     privacy: 'ระบบประมวลผลในเครื่องคุณทั้งหมด ข้อความไม่ถูกอัปโหลด ไม่ถูกเก็บ และไม่ถูกส่งไปที่ใด',
+    privacyCloud: 'การตรวจข้อความทำในเครื่องคุณทั้งหมด ข้อความไม่ถูกอัปโหลด ยกเว้นอย่างเดียวคือภาพ screenshot — การอ่านข้อความจากภาพใช้บริการภายนอก ภาพที่คุณเลือกจึงถูกส่งออกไป',
     inputLabel: 'ข้อความที่ต้องการตรวจสอบ',
     placeholder: 'เช่น บัญชีของคุณจะถูกระงับ กรุณายืนยันตัวตนโดยกดลิงก์ด้านล่าง...',
     charWord: 'ตัวอักษร',
@@ -266,6 +286,7 @@ const T = {
     caveat: 'เครื่องมือนี้ทำงานด้วยกฎที่เขียนไว้ ไม่ใช่โมเดล AI และไม่ใช่การรับประกัน ระบบไม่มีทางจับสแกมที่ใช้คำซึ่งไม่เคยถูกใส่ไว้ ให้ตีความ "น่าจะเป็นข้อความปกติ" ว่า "ไม่พบสัญญาณอันตราย" ไม่ใช่ "ปลอดภัย"',
     ocrHead: 'มีแต่ภาพ screenshot?',
     ocrHint: 'ลากภาพมาวางตรงนี้ กด Ctrl+V เพื่อวางภาพที่ copy ไว้ หรือเลือกไฟล์ก็ได้ ระบบอ่านข้อความในเครื่องคุณ ไม่มีการอัปโหลดภาพไปที่ใด',
+    ocrHintCloud: 'ลากภาพมาวางตรงนี้ กด Ctrl+V เพื่อวางภาพที่ copy ไว้ หรือเลือกไฟล์ก็ได้ ภาพจะถูกส่งไปให้บริการภายนอกอ่านข้อความ',
     ocrPick: 'เลือกไฟล์ภาพ',
     ocrLoading: 'กำลังโหลดตัวอ่านข้อความ (ครั้งแรกเท่านั้น อาจใช้เวลาสักครู่)…',
     ocrReading: 'กำลังอ่านข้อความจากภาพ…',
@@ -286,7 +307,11 @@ const T = {
    ตัวกลางอยู่ในโฟลเดอร์ ocr-proxy/ — ห้ามใส่ API key ตรงนี้เด็ดขาด */
 const OCR = {
   proxyUrl: '',
-  cdn: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js',
+  // ตรึงเวอร์ชันแน่นอน ไม่ใช่ @5 เพราะ integrity ผูกกับไฟล์เดียว ขยับเวอร์ชันเมื่อไร hash ก็เปลี่ยน
+  // อัปเดตทั้งคู่พร้อมกันเสมอ:  openssl dgst -sha384 -binary tesseract.min.js | openssl base64 -A
+  // หมายเหตุ: ไฟล์ที่ tesseract โหลดต่อเอง (worker, wasm, ข้อมูลภาษา) ไม่มี SRI คุ้มครอง
+  cdn: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js',
+  cdnIntegrity: 'sha384-GJqSu7vueQ9qN0E9yLPb3Wtpd7OrgK8KmYzC8T1IysG1bcvxvIO4qtYR/D3A991F',
   langs: 'tha+eng',
   maxDim: 1800,        // ย่อด้านยาวสุดเหลือเท่านี้ก่อนส่ง (ค่าเดียวกับ SDK ของ Typhoon)
   timeoutMs: 60000
@@ -333,8 +358,11 @@ try {
 /* ---------- i18n ---------- */
 function applyLang() {
   const t = T[lang];
+  // โหมด proxy ส่งภาพออกนอกเครื่องจริง ข้อความ privacy จึงต้องเปลี่ยนตาม
+  // ไม่ใช่แค่ ocrNote — ปล่อยให้ข้อความหลักบอกว่า "ไม่ส่งไปที่ใด" คือการโกหกผู้ใช้
+  const cloud = Boolean(OCR.proxyUrl);
   $('tagline').textContent = t.tagline;
-  $('privacyNote').textContent = t.privacy;
+  $('privacyNote').textContent = cloud ? t.privacyCloud : t.privacy;
   $('inputLabel').textContent = t.inputLabel;
   $('msgInput').placeholder = t.placeholder;
   $('charWord').textContent = t.charWord;
@@ -358,9 +386,9 @@ function applyLang() {
   how.appendChild(cav);
 
   $('ocrHead').textContent = t.ocrHead;
-  $('ocrHint').textContent = t.ocrHint;
+  $('ocrHint').textContent = cloud ? t.ocrHintCloud : t.ocrHint;
   $('ocrPick').textContent = t.ocrPick;
-  $('ocrNote').textContent = OCR.proxyUrl ? t.ocrPrivacyCloud : t.ocrNote;
+  $('ocrNote').textContent = cloud ? t.ocrPrivacyCloud : t.ocrNote;
 
   const row = $('exampleRow');
   row.innerHTML = '';
@@ -528,6 +556,7 @@ function loadTesseract() {
   tesseractLoading = new Promise((resolve, reject) => {
     const s = document.createElement('script');
     s.src = OCR.cdn;
+    if (OCR.cdnIntegrity) { s.integrity = OCR.cdnIntegrity; s.crossOrigin = 'anonymous'; }
     // กันกรณี CDN ค้างไม่ตอบ ซึ่งจะไม่ยิงทั้ง onload และ onerror
     const timer = setTimeout(() => { s.remove(); reject(new Error('timeout')); }, 30000);
     s.onload = () => { clearTimeout(timer); window.Tesseract ? resolve(window.Tesseract) : reject(new Error('no global')); };
