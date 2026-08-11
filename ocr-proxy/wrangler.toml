@@ -1,0 +1,16 @@
+name = "chekmsg-ocr-proxy"
+main = "worker.js"
+compatibility_date = "2026-08-01"
+
+[vars]
+# โดเมนของหน้าเว็บที่อนุญาต คั่นด้วยจุลภาค — เปลี่ยนเป็นโดเมนจริงก่อน deploy
+ALLOWED_ORIGINS = "http://localhost:8080"
+RATE_PER_MINUTE = "10"
+
+# API key ต้องใส่เป็น secret ไม่ใช่ vars:
+#   wrangler secret put TYPHOON_API_KEY
+
+# ถ้าต้องการจำกัดอัตราต่อ IP ให้สร้าง KV แล้วผูกตรงนี้
+# [[kv_namespaces]]
+# binding = "RATE_KV"
+# id = "<kv-namespace-id>"

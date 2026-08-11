@@ -1,0 +1,13 @@
+{
+  "name": "chekmsg-ocr-proxy",
+  "version": "1.0.0",
+  "description": "ตัวกลางเรียก Typhoon OCR — เก็บ API key ไว้ฝั่ง server",
+  "type": "module",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": { "node": ">=18" }
+}

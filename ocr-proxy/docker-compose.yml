@@ -1,0 +1,18 @@
+services:
+  ocr-proxy:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    environment:
+      # ห้าม hardcode key ลงไฟล์นี้ — ใส่ใน .env แล้ว compose จะอ่านให้เอง
+      TYPHOON_API_KEY: ${TYPHOON_API_KEY:?ต้องตั้งค่า TYPHOON_API_KEY ใน .env ก่อน}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-*}
+      RATE_PER_SECOND: ${RATE_PER_SECOND:-2}
+      RATE_PER_MINUTE: ${RATE_PER_MINUTE:-20}
+      MAX_IMAGE_MB: ${MAX_IMAGE_MB:-6}
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"

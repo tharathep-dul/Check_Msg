@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChekMsg — Pattern Editor</title>
+<style>
+  :root{
+    --ink:#1b1f23; --paper:#faf7f2; --paper2:#f2ede3;
+    --alert:#b23a2e; --alert-bg:#fbeceb; --safe:#2f6b4f; --safe-bg:#eaf3ee;
+    --unsure:#a67c1f; --unsure-bg:#faf3e3; --accent:#1b3a5c; --muted:#6b6660; --hair:#d8d0c4;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);font-family:'Courier New',ui-monospace,monospace;color:var(--ink);padding:24px 16px 80px;font-size:13px;}
+  .wrap{max-width:1080px;margin:0 auto;}
+  h1{font-family:Georgia,serif;font-size:28px;margin:0 0 4px;}
+  .sub{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:18px;}
+  h2{font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);border-bottom:2px solid var(--ink);padding-bottom:6px;margin:30px 0 12px;}
+  .note{font-size:12px;color:var(--muted);line-height:1.6;margin:8px 0 14px;}
+
+  /* status bar */
+  .status{position:sticky;top:0;z-index:10;background:var(--paper);border:2px solid var(--ink);padding:12px 14px;display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin-bottom:8px;}
+  .stat{font-size:12px;}
+  .stat b{font-size:17px;font-family:Georgia,serif;display:block;}
+  .stat.ok b{color:var(--safe);} .stat.warn b{color:var(--unsure);} .stat.bad b{color:var(--alert);}
+  .delta{font-size:11px;padding:2px 7px;border-radius:10px;margin-left:6px;}
+  .delta.up{background:var(--safe-bg);color:var(--safe);} .delta.down{background:var(--alert-bg);color:var(--alert);}
+  .spacer{flex:1;}
+
+  button{font-family:inherit;font-size:12px;cursor:pointer;border:1.5px solid var(--ink);background:var(--paper2);color:var(--ink);padding:7px 12px;}
+  button:hover{background:var(--ink);color:var(--paper);}
+  button.primary{background:var(--ink);color:var(--paper);}
+  button.primary:hover{background:var(--accent);}
+  button.danger{border-color:var(--alert);color:var(--alert);padding:3px 8px;font-size:11px;}
+  button.danger:hover{background:var(--alert);color:#fff;}
+
+  input,select,textarea{font-family:inherit;font-size:12px;border:1.5px solid var(--hair);background:#fff;padding:6px 8px;color:var(--ink);}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);}
+  textarea{width:100%;min-height:70px;resize:vertical;line-height:1.5;font-size:13px;}
+
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  th{background:var(--ink);color:var(--paper);text-align:left;padding:7px 8px;font-weight:normal;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;position:sticky;top:64px;}
+  td{border-bottom:1px solid var(--hair);padding:4px 6px;vertical-align:middle;}
+  tr:nth-child(even) td{background:rgba(255,255,255,0.45);}
+  td input{width:100%;border-color:transparent;background:transparent;}
+  td input:focus{border-color:var(--accent);background:#fff;}
+  .w-in{width:46px !important;text-align:center;}
+  .scroll{max-height:520px;overflow:auto;border:1.5px solid var(--ink);}
+
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
+  .pill{display:inline-block;background:rgba(255,255,255,0.7);border:1px solid var(--hair);border-radius:11px;padding:2px 8px;margin:2px 3px 2px 0;font-size:11px;}
+  .side-scam{color:var(--alert);} .side-legit{color:var(--safe);}
+
+  .verdict-box{border:2px solid var(--ink);padding:14px;margin-top:10px;}
+  .verdict-box.scam{border-color:var(--alert);background:var(--alert-bg);}
+  .verdict-box.legit{border-color:var(--safe);background:var(--safe-bg);}
+  .verdict-box.unsure{border-color:var(--unsure);background:var(--unsure-bg);}
+  .verdict-box h3{margin:0 0 6px;font-family:Georgia,serif;font-size:17px;}
+
+  .diff{border:1.5px dashed var(--ink);padding:12px;margin-top:10px;font-size:12px;line-height:1.7;}
+  .diff .fixed{color:var(--safe);} .diff .broken{color:var(--alert);font-weight:bold;}
+  .fail-row{padding:5px 0;border-bottom:1px solid var(--hair);font-size:11.5px;}
+  .fail-row .tag{display:inline-block;min-width:52px;font-weight:bold;}
+  .tag.hard{color:var(--alert);} .tag.soft{color:var(--unsure);}
+  .err{border:2px solid var(--alert);background:var(--alert-bg);color:var(--alert);padding:14px;line-height:1.6;}
+  .hidden{display:none;}
+  code{background:var(--paper2);padding:1px 5px;font-size:11.5px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ChekMsg — Pattern Editor</h1>
+  <div class="sub">เพิ่มคำ ทดสอบ แล้ว export — ไม่ต้องแตะโค้ด</div>
+
+  <div id="boot"></div>
+
+  <div id="app" class="hidden">
+    <div class="status">
+      <div class="stat ok"><b><span id="sCorrect">–</span></b>ตอบตรง <span id="dCorrect"></span></div>
+      <div class="stat warn"><b><span id="sSoft">–</span></b>ยืนยันไม่ได้ทั้งที่ควรชัด</div>
+      <div class="stat bad"><b><span id="sHard">–</span></b>ตอบผิดข้าง <span id="dHard"></span></div>
+      <div class="stat"><b><span id="sRecall">–</span></b>recall</div>
+      <div class="stat"><b><span id="sPrec">–</span></b>precision</div>
+      <div class="spacer"></div>
+      <button id="btnExportPatterns" class="primary">ดาวน์โหลด patterns.json</button>
+      <button id="btnExportReport">ดาวน์โหลดรายงาน .md</button>
+      <button id="btnImport">นำเข้าไฟล์เดิม</button>
+      <input type="file" id="fileIn" accept=".json" class="hidden">
+    </div>
+    <div class="note" id="baselineNote"></div>
+
+    <h2>1. ทดสอบข้อความ</h2>
+    <div class="note">วางข้อความจริงที่อยากตรวจ ระบบจะบอกผลพร้อมสัญญาณที่จับได้ ใช้ดูว่าคำที่เพิ่งเพิ่มทำงานไหม</div>
+    <textarea id="tryInput" placeholder="วางข้อความ SMS ที่อยากทดสอบ..."></textarea>
+    <div style="margin-top:8px;"><button id="btnTry" class="primary">ตรวจข้อความนี้</button></div>
+    <div id="tryResult"></div>
+
+    <h2>2. ผลชุดทดสอบ</h2>
+    <div class="note">รันใหม่อัตโนมัติทุกครั้งที่แก้ pattern เทียบกับตอนเปิดหน้านี้ ถ้า <b>ตอบผิดข้าง</b> เพิ่มขึ้น แปลว่าคำที่เพิ่งใส่ทำของเดิมพัง</div>
+    <div id="diffBox"></div>
+    <div id="setSummary"></div>
+    <details style="margin-top:12px;">
+      <summary style="cursor:pointer;font-size:12px;color:var(--accent);">ดูรายการที่ยังไม่ผ่านทั้งหมด</summary>
+      <div id="failList" style="margin-top:8px;"></div>
+    </details>
+
+    <h2>3. คลัง pattern</h2>
+    <div class="toolbar">
+      <input id="q" placeholder="ค้นหาคำ..." style="width:200px;">
+      <select id="fSide"><option value="">ทุกฝั่ง</option><option value="scam">สแกม</option><option value="legit">ปกติ</option></select>
+      <select id="fLang"><option value="">ทุกภาษา</option><option value="th">ไทย</option><option value="en">อังกฤษ</option></select>
+      <select id="fCat"><option value="">ทุกหมวด</option></select>
+      <span class="spacer"></span>
+      <span id="countInfo" style="font-size:11.5px;color:var(--muted);"></span>
+    </div>
+
+    <div style="border:1.5px solid var(--ink);padding:12px;margin-bottom:12px;background:rgba(255,255,255,0.5);">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px;font-weight:bold;">เพิ่มคำใหม่</div>
+      <div class="toolbar" style="margin-bottom:0;">
+        <select id="nSide"><option value="scam">สแกม</option><option value="legit">ปกติ</option></select>
+        <select id="nLang"><option value="th">ไทย</option><option value="en">อังกฤษ</option></select>
+        <select id="nCat"></select>
+        <input id="nMatch" placeholder="คำหรือวลีที่จะจับ" style="flex:1;min-width:220px;">
+        <select id="nW"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select>
+        <button id="btnAdd" class="primary">เพิ่ม</button>
+      </div>
+      <div class="note" style="margin:8px 0 0;">น้ำหนัก 1 = คำที่พบในข้อความปกติได้บ่อย (ด่วน, urgent) · 3 = บ่งชี้ได้แต่ไม่เด็ดขาด · 5 = แทบไม่พบในข้อความจริง (ไม่เช็คบูโร)</div>
+    </div>
+
+    <div class="scroll">
+      <table>
+        <thead><tr><th style="width:70px;">ฝั่ง</th><th style="width:60px;">ภาษา</th><th style="width:170px;">หมวด</th><th>คำที่จับ</th><th style="width:60px;">น้ำหนัก</th><th style="width:60px;"></th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { createEngine } from './engine.js';
+import { runSuite, diffResults, toMarkdown, pct } from './test-core.js';
+
+const $ = id => document.getElementById(id);
+let patterns = null, testset = null, baseline = null;
+
+/* ---------- boot ---------- */
+try {
+  const [pRes, tRes] = await Promise.all([
+    fetch('./patterns.json', { cache: 'no-cache' }),
+    fetch('./tests/testset.json', { cache: 'no-cache' })
+  ]);
+  if (!pRes.ok || !tRes.ok) throw new Error('HTTP ' + pRes.status + '/' + tRes.status);
+  patterns = await pRes.json();
+  testset = await tRes.json();
+  $('app').classList.remove('hidden');
+  baseline = runSuite(createEngine(patterns), testset);
+  $('baselineNote').textContent =
+    `ค่าเริ่มต้นตอนเปิดหน้านี้: ตอบตรง ${baseline.totals.correct}/${baseline.totals.n} · ผิดข้าง ${baseline.totals.hard} — ตัวเลขเทียบทั้งหมดอ้างอิงจากจุดนี้`;
+  initCategories();
+  refresh();
+} catch (err) {
+  const d = document.createElement('div');
+  d.className = 'err';
+  d.textContent = 'โหลดไฟล์ไม่สำเร็จ (' + err.message + ') — หน้านี้ต้องเปิดผ่าน web server ไม่ใช่ double-click ลองรัน: python3 -m http.server 8080 แล้วเปิด http://localhost:8080/admin.html';
+  $('boot').appendChild(d);
+}
+
+function initCategories() {
+  const cats = Object.keys(patterns.categories);
+  for (const sel of [$('fCat'), $('nCat')]) {
+    cats.forEach(c => {
+      const o = document.createElement('option');
+      o.value = c;
+      o.textContent = c + ' — ' + (patterns.categories[c].th || '');
+      sel.appendChild(o);
+    });
+  }
+}
+
+/* ---------- core refresh ---------- */
+function refresh() {
+  const result = runSuite(createEngine(patterns), testset);
+  const t = result.totals;
+
+  $('sCorrect').textContent = t.correct + '/' + t.n;
+  $('sSoft').textContent = t.soft;
+  $('sHard').textContent = t.hard;
+  $('sRecall').textContent = pct(t.recall);
+  $('sPrec').textContent = pct(t.precision);
+
+  const d = diffResults(baseline, result);
+  setDelta($('dCorrect'), d.deltaCorrect);
+  setDelta($('dHard'), -d.deltaHard);
+
+  renderDiff(d);
+  renderSets(result);
+  renderFails(result);
+  renderTable();
+  window.__lastResult = result;
+}
+
+function setDelta(el, v) {
+  el.textContent = '';
+  el.className = 'delta';
+  if (!v) return;
+  el.textContent = (v > 0 ? '+' : '') + v;
+  el.classList.add(v > 0 ? 'up' : 'down');
+}
+
+function renderDiff(d) {
+  const box = $('diffBox');
+  box.innerHTML = '';
+  if (!d.changed.length) return;
+  const div = document.createElement('div');
+  div.className = 'diff';
+  const h = document.createElement('div');
+  h.style.fontWeight = 'bold';
+  h.style.marginBottom = '6px';
+  h.textContent = `เทียบกับตอนเปิดหน้านี้ — เปลี่ยนไป ${d.changed.length} เคส (ดีขึ้น ${d.fixed.length} · พังลง ${d.broken.length})`;
+  div.appendChild(h);
+  d.changed.forEach(c => {
+    const p = document.createElement('div');
+    p.className = c.direction === 'fixed' ? 'fixed' : c.direction === 'broken' ? 'broken' : '';
+    p.textContent = `${c.direction === 'fixed' ? '✓ ดีขึ้น' : c.direction === 'broken' ? '✗ พังลง' : '~ เปลี่ยน'} [${c.id}] ${c.from} → ${c.to} (ควรได้ ${c.expect}) : ${c.text.slice(0, 60)}`;
+    div.appendChild(p);
+  });
+  if (d.broken.length) {
+    const warn = document.createElement('div');
+    warn.style.marginTop = '8px';
+    warn.className = 'broken';
+    warn.textContent = 'มีเคสที่เคยตอบถูกแล้วกลับตอบผิด — ลดน้ำหนักคำที่เพิ่งเพิ่ม หรือเขียนให้เฉพาะเจาะจงขึ้น';
+    div.appendChild(warn);
+  }
+  box.appendChild(div);
+}
+
+function renderSets(result) {
+  const box = $('setSummary');
+  box.innerHTML = '';
+  const tb = document.createElement('table');
+  const head = document.createElement('thead');
+  head.innerHTML = '<tr><th>ชุด</th><th style="width:70px;">จำนวน</th><th style="width:90px;">ตอบตรง</th><th style="width:110px;">ยืนยันไม่ได้</th><th style="width:90px;">ผิดข้าง</th></tr>';
+  tb.appendChild(head);
+  const body = document.createElement('tbody');
+  result.sets.forEach(s => {
+    const tr = document.createElement('tr');
+    [s.key, s.n, `${s.correct} (${pct(s.correct / s.n)})`, s.soft, s.hard].forEach((v, i) => {
+      const td = document.createElement('td');
+      td.textContent = v;
+      if (i === 4 && s.hard > 0) { td.style.color = 'var(--alert)'; td.style.fontWeight = 'bold'; }
+      tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+  tb.appendChild(body);
+  box.appendChild(tb);
+}
+
+function renderFails(result) {
+  const box = $('failList');
+  box.innerHTML = '';
+  result.sets.forEach(s => s.rows.filter(r => r.grade !== 'correct').forEach(r => {
+    const div = document.createElement('div');
+    div.className = 'fail-row';
+    const tag = document.createElement('span');
+    tag.className = 'tag ' + r.grade;
+    tag.textContent = r.grade === 'hard' ? 'ผิดข้าง' : 'unsure';
+    div.appendChild(tag);
+    const txt = document.createElement('span');
+    txt.textContent = ` [${r.id}] ควรได้ ${r.expect} · ตอบ ${r.got} · s${r.scam}/l${r.legit} — ${r.text.slice(0, 80)}`;
+    div.appendChild(txt);
+    box.appendChild(div);
+  }));
+}
+
+/* ---------- pattern table ---------- */
+function allRows() {
+  return [
+    ...patterns.scam.map((p, i) => ({ side: 'scam', i, p })),
+    ...patterns.legit.map((p, i) => ({ side: 'legit', i, p }))
+  ];
+}
+
+function renderTable() {
+  const q = $('q').value.trim().toLowerCase();
+  const fSide = $('fSide').value, fLang = $('fLang').value, fCat = $('fCat').value;
+  const rows = allRows().filter(r =>
+    (!fSide || r.side === fSide) &&
+    (!fLang || r.p.lang === fLang) &&
+    (!fCat || r.p.cat === fCat) &&
+    (!q || r.p.match.toLowerCase().includes(q) || r.p.id.toLowerCase().includes(q))
+  );
+  $('countInfo').textContent = `แสดง ${rows.length} จากทั้งหมด ${patterns.scam.length + patterns.legit.length} คำ (สแกม ${patterns.scam.length} · ปกติ ${patterns.legit.length})`;
+
+  const tb = $('tbody');
+  tb.innerHTML = '';
+  rows.forEach(({ side, i, p }) => {
+    const tr = document.createElement('tr');
+
+    const tdSide = document.createElement('td');
+    tdSide.textContent = side === 'scam' ? 'สแกม' : 'ปกติ';
+    tdSide.className = side === 'scam' ? 'side-scam' : 'side-legit';
+    tr.appendChild(tdSide);
+
+    const tdLang = document.createElement('td');
+    tdLang.textContent = p.lang;
+    tr.appendChild(tdLang);
+
+    const tdCat = document.createElement('td');
+    const catSel = document.createElement('select');
+    Object.keys(patterns.categories).forEach(c => {
+      const o = document.createElement('option');
+      o.value = c; o.textContent = c;
+      if (c === p.cat) o.selected = true;
+      catSel.appendChild(o);
+    });
+    catSel.style.width = '100%';
+    catSel.addEventListener('change', () => { p.cat = catSel.value; refresh(); });
+    tdCat.appendChild(catSel);
+    tr.appendChild(tdCat);
+
+    const tdMatch = document.createElement('td');
+    const inp = document.createElement('input');
+    inp.value = p.match;
+    inp.addEventListener('change', () => { p.match = inp.value; refresh(); });
+    tdMatch.appendChild(inp);
+    tr.appendChild(tdMatch);
+
+    const tdW = document.createElement('td');
+    const w = document.createElement('input');
+    w.type = 'number'; w.min = '1'; w.max = '5'; w.value = p.w; w.className = 'w-in';
+    w.addEventListener('change', () => { p.w = Number(w.value) || 1; refresh(); });
+    tdW.appendChild(w);
+    tr.appendChild(tdW);
+
+    const tdDel = document.createElement('td');
+    const del = document.createElement('button');
+    del.className = 'danger';
+    del.textContent = 'ลบ';
+    del.addEventListener('click', () => {
+      if (!confirm('ลบ "' + p.match + '" ออกจากคลัง?')) return;
+      patterns[side].splice(i, 1);
+      refresh();
+    });
+    tdDel.appendChild(del);
+    tr.appendChild(tdDel);
+
+    tb.appendChild(tr);
+  });
+}
+
+/* ---------- live try ---------- */
+function tryMessage() {
+  const raw = $('tryInput').value.trim();
+  const box = $('tryResult');
+  box.innerHTML = '';
+  if (!raw) return;
+  const r = createEngine(patterns).analyze(raw);
+  const div = document.createElement('div');
+  div.className = 'verdict-box ' + r.verdict;
+  const h = document.createElement('h3');
+  h.textContent = { scam: '⚠ น่าจะเป็นสแกม', legit: '✓ น่าจะเป็นข้อความปกติ', unsure: '? ยืนยันไม่ได้' }[r.verdict];
+  div.appendChild(h);
+  const meta = document.createElement('div');
+  meta.style.fontSize = '11.5px';
+  meta.style.color = 'var(--muted)';
+  meta.textContent = `คะแนนสแกม ${r.scamScore} · คะแนนปกติ ${r.legitScore} · ส่วนต่าง ${r.margin} (เกณฑ์สแกม ≥ ${patterns.thresholds.scamMargin}) · ความแรง ${r.strength}`;
+  div.appendChild(meta);
+  const sig = document.createElement('div');
+  sig.style.marginTop = '8px';
+  [...r.scamSignals.map(s => ['scam', s]), ...r.legitSignals.map(s => ['legit', s])].forEach(([side, s]) => {
+    const sp = document.createElement('span');
+    sp.className = 'pill ' + (side === 'scam' ? 'side-scam' : 'side-legit');
+    sp.textContent = `${r.categoryLabel(s.cat, 'th')} (+${s.w})`;
+    sig.appendChild(sp);
+  });
+  if (!r.scamSignals.length && !r.legitSignals.length) {
+    const sp = document.createElement('span');
+    sp.style.fontSize = '11.5px';
+    sp.style.color = 'var(--muted)';
+    sp.textContent = 'ไม่พบสัญญาณใดเลย — ถ้าข้อความนี้ควรถูกจับได้ ให้เพิ่มคำในหัวข้อ 3';
+    sig.appendChild(sp);
+  }
+  div.appendChild(sig);
+  box.appendChild(div);
+}
+
+/* ---------- export / import ---------- */
+function download(name, text, type) {
+  const blob = new Blob([text], { type: type + ';charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+function bumpVersion(v) {
+  const parts = String(v).split('.');
+  parts[2] = String((Number(parts[2]) || 0) + 1);
+  return parts.join('.');
+}
+
+/* ---------- events ---------- */
+$('btnTry').addEventListener('click', tryMessage);
+$('q').addEventListener('input', renderTable);
+['fSide', 'fLang', 'fCat'].forEach(id => $(id).addEventListener('change', renderTable));
+
+$('btnAdd').addEventListener('click', () => {
+  const match = $('nMatch').value.trim();
+  if (!match) { alert('ใส่คำที่จะจับก่อน'); return; }
+  const side = $('nSide').value;
+  const lang = $('nLang').value;
+  const cat = $('nCat').value;
+  if (!cat) { alert('เลือกหมวดก่อน'); return; }
+  const dup = allRows().find(r => r.p.match.toLowerCase() === match.toLowerCase());
+  if (dup && !confirm(`มีคำนี้อยู่แล้วในฝั่ง ${dup.side} (${dup.p.id}) เพิ่มซ้ำ?`)) return;
+  patterns[side].push({
+    id: `${side[0]}_${lang}_custom_${Date.now().toString(36)}`,
+    lang, cat, match, w: Number($('nW').value)
+  });
+  $('nMatch').value = '';
+  refresh();
+});
+
+$('btnExportPatterns').addEventListener('click', () => {
+  const out = { ...patterns, version: bumpVersion(patterns.version), updated: new Date().toISOString().slice(0, 10) };
+  download('patterns.json', JSON.stringify(out, null, 2), 'application/json');
+});
+
+$('btnExportReport').addEventListener('click', () => {
+  const md = toMarkdown(window.__lastResult, {
+    patternsVersion: patterns.version,
+    patternsUpdated: patterns.updated,
+    testsetVersion: testset.version
+  });
+  download('chekmsg-test-report.md', md, 'text/markdown');
+});
+
+$('btnImport').addEventListener('click', () => $('fileIn').click());
+$('fileIn').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  try {
+    const obj = JSON.parse(await f.text());
+    if (!obj.scam || !obj.legit || !obj.categories) throw new Error('ไม่ใช่ patterns.json ที่ถูกต้อง');
+    patterns = obj;
+    baseline = runSuite(createEngine(patterns), testset);
+    $('fCat').length = 1; $('nCat').length = 0;
+    initCategories();
+    refresh();
+    alert('นำเข้าแล้ว — ค่าเริ่มต้นถูกตั้งใหม่จากไฟล์นี้');
+  } catch (err) {
+    alert('อ่านไฟล์ไม่สำเร็จ: ' + err.message);
+  }
+  e.target.value = '';
+});
+</script>
+</body>
+</html>

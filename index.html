@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChekMsg — Banking Fraud Screener</title>
+<style>
+  :root{
+    --ink:#1b1f23; --paper:#faf7f2; --paper2:#f2ede3;
+    --line:#1b1f23; --alert:#b23a2e; --alert-bg:#fbeceb;
+    --safe:#2f6b4f; --safe-bg:#eaf3ee; --unsure:#a67c1f; --unsure-bg:#faf3e3;
+    --accent:#1b3a5c; --muted:#6b6660; --hair:#d8d0c4;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper);
+    background-image:radial-gradient(circle at 1px 1px, rgba(27,31,35,0.05) 1px, transparent 0);
+    background-size:22px 22px;
+    font-family:'Courier New', ui-monospace, monospace;
+    color:var(--ink); padding:28px 16px 60px;
+  }
+  .wrap{max-width:680px;margin:0 auto;}
+  .brand{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid var(--line);padding-bottom:14px;margin-bottom:4px;}
+  .brand-left h1{font-family:Georgia,'Times New Roman',serif;font-size:34px;letter-spacing:-0.5px;margin:0;line-height:1;}
+  .brand-left .sub{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-top:6px;}
+  .brand-right{text-align:right;font-size:11px;color:var(--muted);line-height:1.7;}
+  .badge{display:inline-block;background:var(--ink);color:var(--paper);font-size:9px;letter-spacing:1px;padding:2px 7px;text-transform:uppercase;}
+  .tag{font-size:13px;color:var(--muted);margin:16px 0 10px;line-height:1.6;}
+  .privacy{font-size:11.5px;color:var(--safe);border:1px solid var(--safe);background:var(--safe-bg);padding:8px 11px;margin-bottom:22px;line-height:1.5;}
+
+  .lang-toggle{display:flex;margin-bottom:20px;border:2px solid var(--line);width:fit-content;}
+  .lang-toggle button{background:var(--paper);border:none;padding:6px 16px;font-family:inherit;font-size:11px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;color:var(--ink);}
+  .lang-toggle button[aria-pressed="true"]{background:var(--ink);color:var(--paper);}
+
+  .field label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px;font-weight:bold;}
+  textarea{width:100%;min-height:130px;padding:16px;border:2px solid var(--line);background:#fff;font-family:inherit;font-size:15px;color:var(--ink);resize:vertical;line-height:1.5;}
+  textarea:focus{outline:none;border-color:var(--accent);box-shadow:3px 3px 0 rgba(27,58,92,0.15);}
+  .char-count{font-size:10px;color:var(--muted);text-align:right;margin-top:4px;}
+
+  /* ocr */
+  .ocr{margin-top:12px;border:2px dashed var(--line);padding:14px;background:rgba(255,255,255,0.4);transition:background .15s ease;}
+  .ocr.drag{background:var(--paper2);border-color:var(--accent);}
+  .ocr-head{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:bold;margin-bottom:6px;}
+  .ocr-hint{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:10px;}
+  .ocr-btn{background:var(--paper2);border:1.5px solid var(--line);padding:8px 14px;font-family:inherit;font-size:12px;cursor:pointer;color:var(--ink);}
+  .ocr-btn:hover{background:var(--ink);color:var(--paper);}
+  .ocr-btn:disabled{opacity:.5;cursor:default;}
+  .ocr-status{margin-top:10px;font-size:12px;color:var(--accent);line-height:1.6;}
+  .ocr-status.err{color:var(--alert);}
+  .ocr-bar{height:6px;background:rgba(0,0,0,0.08);border:1px solid var(--line);margin-top:6px;display:none;}
+  .ocr-bar span{display:block;height:100%;background:var(--accent);width:0;transition:width .2s ease;}
+  .ocr-note{margin-top:10px;font-size:11.5px;background:var(--unsure-bg);border-left:3px solid var(--unsure);padding:8px 11px;line-height:1.6;display:none;}
+
+  .examples{margin:14px 0 22px;}
+  .examples .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
+  .examples .btn-row{display:flex;flex-wrap:wrap;gap:6px;}
+  .examples button{background:var(--paper2);border:1px solid var(--line);border-radius:20px;padding:6px 13px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--ink);transition:all .15s ease;}
+  .examples button:hover{background:var(--ink);color:var(--paper);}
+
+  .action-row{display:flex;gap:10px;margin-top:6px;}
+  .check-btn{flex:1;padding:16px;background:var(--ink);color:var(--paper);border:none;font-family:inherit;font-size:15px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;}
+  .check-btn:hover{background:var(--accent);}
+  .clear-btn{padding:16px 20px;background:transparent;color:var(--ink);border:2px solid var(--line);font-family:inherit;font-size:13px;text-transform:uppercase;letter-spacing:1px;cursor:pointer;}
+
+  #result{margin-top:26px;}
+  .verdict{border:3px solid var(--line);padding:22px;box-shadow:5px 5px 0 rgba(27,31,35,0.08);}
+  .verdict.scam{border-color:var(--alert);background:var(--alert-bg);}
+  .verdict.legit{border-color:var(--safe);background:var(--safe-bg);}
+  .verdict.unsure{border-color:var(--unsure);background:var(--unsure-bg);}
+  .verdict-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+  .verdict h2{margin:0 0 8px;font-family:Georgia,serif;font-size:23px;}
+  .verdict.scam h2{color:var(--alert);} .verdict.legit h2{color:var(--safe);} .verdict.unsure h2{color:var(--unsure);}
+  .verdict p{margin:6px 0;font-size:13.5px;line-height:1.6;}
+  .risk-chip{font-size:10px;text-transform:uppercase;letter-spacing:1px;font-weight:bold;padding:4px 10px;border:1.5px solid currentColor;white-space:nowrap;}
+  .verdict.scam .risk-chip{color:var(--alert);} .verdict.legit .risk-chip{color:var(--safe);} .verdict.unsure .risk-chip{color:var(--unsure);}
+  .flags{margin-top:14px;font-size:12px;color:var(--muted);padding-top:12px;border-top:1px dashed var(--hair);}
+  .flags b{color:var(--ink);display:block;margin-bottom:4px;}
+  .flag-pill{display:inline-block;background:rgba(255,255,255,0.6);border:1px solid currentColor;border-radius:12px;padding:2px 9px;margin:2px 4px 2px 0;font-size:11px;}
+  .strength{margin-top:16px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);}
+  .strength .dots{display:inline-block;margin-left:8px;letter-spacing:3px;font-size:14px;color:var(--ink);}
+  .action-tip{margin-top:14px;font-size:12px;background:rgba(255,255,255,0.55);border-left:3px solid currentColor;padding:8px 12px;line-height:1.6;}
+  .report-wrong{margin-top:12px;font-size:11px;}
+  .report-wrong a{color:var(--accent);}
+
+  .history{margin-top:30px;}
+  .history .label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px;font-weight:bold;}
+  .history-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--hair);font-size:12px;}
+  .history-item .msg-preview{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .history-tag{font-size:9px;text-transform:uppercase;letter-spacing:0.5px;padding:2px 7px;border-radius:10px;font-weight:bold;white-space:nowrap;}
+  .history-tag.scam{background:var(--alert-bg);color:var(--alert);}
+  .history-tag.legit{background:var(--safe-bg);color:var(--safe);}
+  .history-tag.unsure{background:var(--unsure-bg);color:var(--unsure);}
+  .empty-history{font-size:12px;color:var(--muted);font-style:italic;}
+
+  details.howworks{margin-top:30px;border-top:1px solid var(--hair);padding-top:16px;}
+  details.howworks summary{cursor:pointer;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);font-weight:bold;}
+  details.howworks .content{font-size:12.5px;line-height:1.7;margin-top:12px;}
+  details.howworks .content ol{padding-left:18px;margin:8px 0;}
+  .caveat{margin-top:14px;padding:10px 12px;background:var(--unsure-bg);border-left:3px solid var(--unsure);font-size:12px;line-height:1.6;}
+
+  .stat-strip{display:flex;justify-content:space-between;margin-top:40px;border-top:1px solid var(--line);padding-top:14px;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;flex-wrap:wrap;gap:6px;}
+  .loaderr{border:2px solid var(--alert);background:var(--alert-bg);color:var(--alert);padding:14px;font-size:12.5px;line-height:1.6;}
+  @media (max-width:480px){ .brand{flex-direction:column;align-items:flex-start;gap:6px;} .brand-right{text-align:left;} .action-row{flex-direction:column;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="brand-left">
+      <h1>ChekMsg</h1>
+      <div class="sub">Banking Fraud Screener</div>
+    </div>
+    <div class="brand-right">
+      <span class="badge" id="buildBadge">v0.4</span><br>
+      Thailand · EN / TH
+    </div>
+  </div>
+
+  <div class="tag" id="tagline"></div>
+  <div class="privacy" id="privacyNote"></div>
+
+  <div class="lang-toggle" role="group" aria-label="Language">
+    <button id="btnEn" aria-pressed="true">English</button>
+    <button id="btnTh" aria-pressed="false">ไทย</button>
+  </div>
+
+  <div class="field">
+    <label id="inputLabel" for="msgInput"></label>
+    <textarea id="msgInput"></textarea>
+    <div class="char-count"><span id="charCount">0</span> <span id="charWord"></span></div>
+  </div>
+
+  <div class="ocr" id="ocrZone">
+    <div class="ocr-head" id="ocrHead"></div>
+    <div class="ocr-hint" id="ocrHint"></div>
+    <button class="ocr-btn" id="ocrPick"></button>
+    <input type="file" id="ocrFile" accept="image/*" style="display:none">
+    <div class="ocr-bar" id="ocrBar"><span id="ocrFill"></span></div>
+    <div class="ocr-status" id="ocrStatus"></div>
+    <div class="ocr-note" id="ocrNote"></div>
+  </div>
+
+  <div class="examples">
+    <div class="label" id="tryLabel"></div>
+    <div class="btn-row" id="exampleRow"></div>
+  </div>
+
+  <div class="action-row">
+    <button class="check-btn" id="checkBtn"></button>
+    <button class="clear-btn" id="clearBtn"></button>
+  </div>
+
+  <div id="result" role="status" aria-live="polite"></div>
+
+  <div class="history">
+    <div class="label" id="historyLabel"></div>
+    <div id="historyList"></div>
+  </div>
+
+  <details class="howworks">
+    <summary id="howSummary"></summary>
+    <div class="content" id="howContent"></div>
+  </details>
+
+  <div class="stat-strip">
+    <span id="statBuild"></span>
+    <span id="statPatterns"></span>
+    <span id="statUpdated"></span>
+  </div>
+</div>
+
+<script type="module">
+import { createEngine } from './engine.js';
+
+/* ---------- ข้อความ UI ทั้งหมด แยกตามภาษา ---------- */
+const T = {
+  en: {
+    tagline: 'Paste any bank SMS, LINE message, or notification below and get an instant read on whether it looks like a scam.',
+    privacy: 'Everything runs inside your browser. Your message is never uploaded, stored, or sent anywhere.',
+    inputLabel: 'Message to check',
+    placeholder: 'e.g. Your account will be suspended. Verify your identity now by clicking the link...',
+    charWord: 'characters',
+    tryLabel: 'Try a sample',
+    check: 'Check this message',
+    clear: 'Clear',
+    historyLabel: 'Recent checks (this session only)',
+    emptyHistory: 'No messages checked yet.',
+    empty: 'Paste a message first',
+    emptyBody: 'Add the SMS or notification text above, then check again.',
+    verdict: {
+      scam:   { title: '⚠ Likely Scam',    chip: 'HIGH RISK', body: 'This message matches patterns commonly used in banking fraud.' },
+      legit:  { title: '✓ Likely Legit',   chip: 'LOW RISK',  body: 'This reads like a standard transaction or account notification.' },
+      unsure: { title: '? Cannot Confirm', chip: 'UNKNOWN',   body: 'Not enough signal either way. This does not mean the message is safe.' }
+    },
+    tip: {
+      scam:   'Do not click any links or share OTPs, passwords, or PINs. Contact your bank using the number on your card.',
+      legit:  'Still, never share your OTP or password, even for messages that look legitimate.',
+      unsure: 'When in doubt, call your bank directly rather than replying or clicking any link.'
+    },
+    redFlags: 'Red flags found',
+    safeSignals: 'Safe signals found',
+    strength: 'Signal strength',
+    strengthWord: { low: 'weak', medium: 'moderate', high: 'clear' },
+    reportWrong: 'Result looks wrong?',
+    reportWrongLink: 'Report this message',
+    howSummary: 'How does this tool decide?',
+    how: [
+      'It looks for wording commonly seen in banking scams — urgency, requests to click links or share an OTP, fake delivery or customs fees, loan and job offers, and impersonation of banks or government agencies — and compares that against wording typical of genuine bank notifications.',
+      'It counts matched scam wording and matched legitimate wording, each grouped by category so overlapping phrases are not double-counted.',
+      'It ignores a scam phrase when it follows a negation, so "never share your OTP" is read as bank advice, not a scam request.',
+      'It checks any link against a list of known bank and government domains.',
+      'A verdict is only given when one side leads the other by a clear margin. Otherwise it says it cannot confirm.'
+    ],
+    caveat: 'This is a rules-based screener, not an AI model and not a guarantee. It has no way to detect a scam whose wording it has never seen. Treat "Likely Legit" as "no red flags found", not as "safe".',
+    ocrHead: 'Have a screenshot instead?',
+    ocrHint: 'Drop an image here, paste one with Ctrl+V, or pick a file. The text is read inside your browser — the image is never uploaded.',
+    ocrPick: 'Choose an image',
+    ocrLoading: 'Loading the text reader (first time only, may take a while)…',
+    ocrReading: 'Reading the image…',
+    ocrDone: 'Done. Check the text above and fix anything that came out wrong, then press check.',
+    ocrEmpty: 'No text could be read from this image. Try a sharper screenshot, or type the message in by hand.',
+    ocrFail: 'Could not load the text reader. Check your internet connection, or type the message in by hand.',
+    ocrNotImage: 'That file is not an image.',
+    ocrNote: 'Reading Thai from a screenshot is not perfect — always read the extracted text before trusting the result.',
+    ocrSending: 'Sending the image for reading…',
+    ocrProxyFail: 'The reading service is unavailable. Try again shortly, or type the message in by hand.',
+    ocrPrivacyCloud: 'This image is sent to a text-reading service to be processed. Only the image you choose is sent, and it is not stored.'
+  },
+  th: {
+    tagline: 'วางข้อความ SMS, LINE หรือการแจ้งเตือนจากธนาคาร แล้วดูว่าเข้าข่ายสแกมหรือไม่',
+    privacy: 'ระบบประมวลผลในเครื่องคุณทั้งหมด ข้อความไม่ถูกอัปโหลด ไม่ถูกเก็บ และไม่ถูกส่งไปที่ใด',
+    inputLabel: 'ข้อความที่ต้องการตรวจสอบ',
+    placeholder: 'เช่น บัญชีของคุณจะถูกระงับ กรุณายืนยันตัวตนโดยกดลิงก์ด้านล่าง...',
+    charWord: 'ตัวอักษร',
+    tryLabel: 'ลองตัวอย่าง',
+    check: 'ตรวจสอบข้อความนี้',
+    clear: 'ล้าง',
+    historyLabel: 'รายการที่ตรวจล่าสุด (เฉพาะครั้งนี้)',
+    emptyHistory: 'ยังไม่ได้ตรวจข้อความใด',
+    empty: 'กรุณาวางข้อความก่อน',
+    emptyBody: 'ใส่ข้อความ SMS หรือการแจ้งเตือนด้านบน แล้วกดตรวจสอบอีกครั้ง',
+    verdict: {
+      scam:   { title: '⚠ น่าจะเป็นสแกม',   chip: 'เสี่ยงสูง',   body: 'ข้อความนี้ตรงกับรูปแบบที่พบบ่อยในการหลอกลวงทางการเงิน' },
+      legit:  { title: '✓ น่าจะเป็นข้อความปกติ', chip: 'เสี่ยงต่ำ', body: 'อ่านแล้วเหมือนการแจ้งเตือนธุรกรรมหรือบัญชีตามปกติ' },
+      unsure: { title: '? ยืนยันไม่ได้',     chip: 'ไม่ทราบ',    body: 'สัญญาณไม่ชัดพอทั้งสองทาง ไม่ได้แปลว่าข้อความนี้ปลอดภัย' }
+    },
+    tip: {
+      scam:   'อย่ากดลิงก์ และอย่าบอก OTP รหัสผ่าน หรือ PIN กับใคร หากไม่แน่ใจให้โทรหาธนาคารด้วยเบอร์หลังบัตร',
+      legit:  'ถึงอย่างนั้น อย่าบอก OTP หรือรหัสผ่านกับใคร แม้ข้อความจะดูน่าเชื่อถือ',
+      unsure: 'เมื่อไม่แน่ใจ ให้โทรหาธนาคารโดยตรง อย่าตอบกลับหรือกดลิงก์ในข้อความ'
+    },
+    redFlags: 'สัญญาณอันตรายที่พบ',
+    safeSignals: 'สัญญาณของข้อความปกติที่พบ',
+    strength: 'ความแรงของสัญญาณ',
+    strengthWord: { low: 'อ่อน', medium: 'ปานกลาง', high: 'ชัดเจน' },
+    reportWrong: 'ผลลัพธ์ดูไม่ถูก?',
+    reportWrongLink: 'แจ้งข้อความนี้',
+    howSummary: 'เครื่องมือนี้ตัดสินอย่างไร',
+    how: [
+      'ระบบมองหาคำที่พบบ่อยในข้อความหลอกลวง เช่น การเร่งรัด การให้กดลิงก์หรือบอก OTP ค่าพัสดุและค่าศุลกากรปลอม การเสนอเงินกู้และงานรายได้ง่าย รวมถึงการแอบอ้างเป็นธนาคารหรือหน่วยงานรัฐ แล้วเทียบกับคำที่พบในข้อความแจ้งเตือนจริงของธนาคาร',
+      'นับคำฝั่งสแกมและฝั่งข้อความปกติ โดยจัดกลุ่มตามหมวด เพื่อไม่ให้คำที่ความหมายซ้ำกันถูกนับหลายรอบ',
+      'ถ้าคำต้องสงสัยตามหลังคำปฏิเสธ ระบบจะไม่นับเป็นสัญญาณสแกม เช่น "ห้ามบอกรหัส OTP" ถือเป็นคำเตือนของธนาคาร',
+      'ตรวจโดเมนของลิงก์เทียบกับรายชื่อโดเมนจริงของธนาคารและหน่วยงานรัฐ',
+      'จะสรุปผลก็ต่อเมื่อฝั่งใดฝั่งหนึ่งนำอีกฝั่งด้วยส่วนต่างที่ชัดเจน ถ้าไม่ถึงเกณฑ์จะตอบว่ายืนยันไม่ได้'
+    ],
+    caveat: 'เครื่องมือนี้ทำงานด้วยกฎที่เขียนไว้ ไม่ใช่โมเดล AI และไม่ใช่การรับประกัน ระบบไม่มีทางจับสแกมที่ใช้คำซึ่งไม่เคยถูกใส่ไว้ ให้ตีความ "น่าจะเป็นข้อความปกติ" ว่า "ไม่พบสัญญาณอันตราย" ไม่ใช่ "ปลอดภัย"',
+    ocrHead: 'มีแต่ภาพ screenshot?',
+    ocrHint: 'ลากภาพมาวางตรงนี้ กด Ctrl+V เพื่อวางภาพที่ copy ไว้ หรือเลือกไฟล์ก็ได้ ระบบอ่านข้อความในเครื่องคุณ ไม่มีการอัปโหลดภาพไปที่ใด',
+    ocrPick: 'เลือกไฟล์ภาพ',
+    ocrLoading: 'กำลังโหลดตัวอ่านข้อความ (ครั้งแรกเท่านั้น อาจใช้เวลาสักครู่)…',
+    ocrReading: 'กำลังอ่านข้อความจากภาพ…',
+    ocrDone: 'อ่านเสร็จแล้ว ตรวจข้อความด้านบนและแก้ส่วนที่เพี้ยนก่อน แล้วค่อยกดตรวจสอบ',
+    ocrEmpty: 'อ่านข้อความจากภาพนี้ไม่ได้ ลองใช้ภาพที่ชัดกว่านี้ หรือพิมพ์ข้อความเองแทน',
+    ocrFail: 'โหลดตัวอ่านข้อความไม่สำเร็จ ตรวจการเชื่อมต่ออินเทอร์เน็ต หรือพิมพ์ข้อความเองแทน',
+    ocrNotImage: 'ไฟล์นี้ไม่ใช่ไฟล์ภาพ',
+    ocrNote: 'การอ่านภาษาไทยจาก screenshot ยังไม่แม่นเสมอไป อ่านทวนข้อความที่ได้ทุกครั้งก่อนเชื่อผลลัพธ์',
+    ocrSending: 'กำลังส่งภาพไปอ่านข้อความ…',
+    ocrProxyFail: 'บริการอ่านข้อความใช้งานไม่ได้ ลองใหม่อีกครั้ง หรือพิมพ์ข้อความเองแทน',
+    ocrPrivacyCloud: 'ภาพนี้จะถูกส่งไปยังบริการอ่านข้อความเพื่อประมวลผล ระบบส่งเฉพาะภาพที่คุณเลือกเท่านั้น และไม่มีการจัดเก็บไว้'
+  }
+};
+
+/* ---------- ตั้งค่า OCR ----------
+   proxyUrl มีค่า  -> ใช้ Typhoon OCR ผ่านตัวกลาง (แม่นกับภาษาไทยมาก ภาพออกจากเครื่อง)
+   proxyUrl ว่าง   -> ใช้ Tesseract ในเบราว์เซอร์ (ภาพไม่ออกจากเครื่อง แต่ภาษาไทยเพี้ยนมาก)
+   ตัวกลางอยู่ในโฟลเดอร์ ocr-proxy/ — ห้ามใส่ API key ตรงนี้เด็ดขาด */
+const OCR = {
+  proxyUrl: '',
+  cdn: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js',
+  langs: 'tha+eng',
+  maxDim: 1800,        // ย่อด้านยาวสุดเหลือเท่านี้ก่อนส่ง (ค่าเดียวกับ SDK ของ Typhoon)
+  timeoutMs: 60000
+};
+
+const EXAMPLES = [
+  { th: 'สแกมธนาคาร', en: 'Bank scam',      text: 'แจ้งเตือน ตรวจพบธุรกรรมผิดปกติ บัญชีจะถูกระงับ กรุณายืนยันข้อมูลที่ https://kbank-verify.top ด่วน' },
+  { th: 'ธนาคารจริง',  en: 'Real bank alert', text: 'ยอดเงินเข้าบัญชี 2,500.00 บาท คงเหลือ 18,432.10 บาท ข้อความอัตโนมัติ ไม่ต้องตอบกลับ' },
+  { th: 'OTP จริง',    en: 'Real OTP',        text: 'รหัส OTP ของคุณคือ 774512 ห้ามบอกผู้อื่นเด็ดขาด (Ref: KX8821)' },
+  { th: 'สแกมพัสดุ',   en: 'Parcel scam',     text: 'พัสดุตกค้างที่ศุลกากร กรุณาชำระค่าธรรมเนียมพัสดุ 45 บาท ภายใน 24 ชั่วโมง bit.ly/th-post' },
+  { th: 'สแกมงาน',     en: 'Job scam',        text: 'รับสมัครงานพาร์ทไทม์ กดไลค์คลิปละ 50 บาท รายได้วันละ 1,500 ทำที่บ้านได้ แอดไลน์ @job2026' },
+  { th: 'สแกมลงทุน',   en: 'Investment scam', text: 'ลงทุนกับโค้ช กำไรวันละ 5% การันตีผลตอบแทน ลงทุนไม่มีความเสี่ยง ทักแชทมาที่ไลน์' },
+  { th: 'สแกมเงินกู้',  en: 'Loan scam',      text: 'คุณได้รับสิทธิ์กู้เงินฉุกเฉิน 50,000 บาท อนุมัติไว ไม่เช็คบูโร ไม่ต้องใช้เอกสาร ทักไลน์' }
+];
+
+/* ---------- แก้ที่ดุลย์ต้องตั้งค่า: ลิงก์ฟอร์มรับรายงานผลผิด ---------- */
+const REPORT_FORM_URL = ''; // ใส่ URL Google Form แล้วปุ่มจะขึ้นเอง
+
+let lang = 'th';
+let engine = null;
+let checkHistory = [];
+
+const $ = id => document.getElementById(id);
+
+/* ---------- boot ---------- */
+try {
+  const res = await fetch('./patterns.json', { cache: 'no-cache' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const patterns = await res.json();
+  engine = createEngine(patterns);
+  const count = patterns.scam.length + patterns.legit.length + patterns.risk.length;
+  $('statBuild').textContent = 'Build: v' + patterns.version;
+  $('statPatterns').textContent = 'Detection library: ' + count + ' patterns, EN + TH';
+  $('statUpdated').textContent = 'Patterns updated: ' + patterns.updated;
+  $('buildBadge').textContent = 'v' + patterns.version;
+} catch (err) {
+  $('result').innerHTML = '';
+  const box = document.createElement('div');
+  box.className = 'loaderr';
+  box.textContent = 'โหลด patterns.json ไม่สำเร็จ (' + err.message + ') — หน้านี้ต้องเปิดผ่าน web server ไม่ใช่ double-click ไฟล์ ลองรัน: python3 -m http.server 8080';
+  $('result').appendChild(box);
+}
+
+/* ---------- i18n ---------- */
+function applyLang() {
+  const t = T[lang];
+  $('tagline').textContent = t.tagline;
+  $('privacyNote').textContent = t.privacy;
+  $('inputLabel').textContent = t.inputLabel;
+  $('msgInput').placeholder = t.placeholder;
+  $('charWord').textContent = t.charWord;
+  $('tryLabel').textContent = t.tryLabel;
+  $('checkBtn').textContent = t.check;
+  $('clearBtn').textContent = t.clear;
+  $('historyLabel').textContent = t.historyLabel;
+  $('howSummary').textContent = t.howSummary;
+  $('btnEn').setAttribute('aria-pressed', String(lang === 'en'));
+  $('btnTh').setAttribute('aria-pressed', String(lang === 'th'));
+  document.documentElement.lang = lang;
+
+  const how = $('howContent');
+  how.innerHTML = '';
+  const ol = document.createElement('ol');
+  t.how.forEach(line => { const li = document.createElement('li'); li.textContent = line; ol.appendChild(li); });
+  how.appendChild(ol);
+  const cav = document.createElement('div');
+  cav.className = 'caveat';
+  cav.textContent = t.caveat;
+  how.appendChild(cav);
+
+  $('ocrHead').textContent = t.ocrHead;
+  $('ocrHint').textContent = t.ocrHint;
+  $('ocrPick').textContent = t.ocrPick;
+  $('ocrNote').textContent = OCR.proxyUrl ? t.ocrPrivacyCloud : t.ocrNote;
+
+  const row = $('exampleRow');
+  row.innerHTML = '';
+  EXAMPLES.forEach(ex => {
+    const b = document.createElement('button');
+    b.textContent = ex[lang] || ex.en;
+    b.addEventListener('click', () => { $('msgInput').value = ex.text; updateCount(); });
+    row.appendChild(b);
+  });
+
+  renderHistory();
+}
+
+function updateCount() { $('charCount').textContent = $('msgInput').value.length; }
+
+/* ---------- render ---------- */
+function pill(text) {
+  const s = document.createElement('span');
+  s.className = 'flag-pill';
+  s.textContent = text;            // textContent — ไม่มีทางฝัง HTML ได้
+  return s;
+}
+
+function renderResult(raw) {
+  const t = T[lang];
+  const r = engine.analyze(raw);
+  const v = t.verdict[r.verdict];
+
+  const box = document.createElement('div');
+  box.className = 'verdict ' + r.verdict;
+
+  const top = document.createElement('div');
+  top.className = 'verdict-top';
+  const h = document.createElement('h2');
+  h.textContent = v.title;
+  const chip = document.createElement('span');
+  chip.className = 'risk-chip';
+  chip.textContent = v.chip;
+  top.append(h, chip);
+  box.appendChild(top);
+
+  const body = document.createElement('p');
+  body.textContent = v.body;
+  box.appendChild(body);
+
+  if (r.scamSignals.length) {
+    const d = document.createElement('div');
+    d.className = 'flags';
+    const b = document.createElement('b');
+    b.textContent = t.redFlags;
+    d.appendChild(b);
+    r.scamSignals.forEach(s => d.appendChild(pill(r.categoryLabel(s.cat, lang))));
+    if (r.untrustedDomains.length) d.appendChild(pill(r.untrustedDomains.join(', ')));
+    box.appendChild(d);
+  }
+  if (r.legitSignals.length) {
+    const d = document.createElement('div');
+    d.className = 'flags';
+    const b = document.createElement('b');
+    b.textContent = t.safeSignals;
+    d.appendChild(b);
+    r.legitSignals.forEach(s => d.appendChild(pill(r.categoryLabel(s.cat, lang))));
+    box.appendChild(d);
+  }
+
+  const st = document.createElement('div');
+  st.className = 'strength';
+  const dots = { low: '●○○', medium: '●●○', high: '●●●' }[r.strength];
+  st.textContent = t.strength + ': ' + t.strengthWord[r.strength];
+  const dotSpan = document.createElement('span');
+  dotSpan.className = 'dots';
+  dotSpan.textContent = dots;
+  st.appendChild(dotSpan);
+  box.appendChild(st);
+
+  const tip = document.createElement('div');
+  tip.className = 'action-tip';
+  tip.textContent = t.tip[r.verdict];
+  box.appendChild(tip);
+
+  if (REPORT_FORM_URL) {
+    const rw = document.createElement('div');
+    rw.className = 'report-wrong';
+    rw.textContent = t.reportWrong + ' ';
+    const a = document.createElement('a');
+    a.href = REPORT_FORM_URL + (REPORT_FORM_URL.includes('?') ? '&' : '?') + 'msg=' + encodeURIComponent(raw.slice(0, 400));
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.textContent = t.reportWrongLink;
+    rw.appendChild(a);
+    box.appendChild(rw);
+  }
+
+  const out = $('result');
+  out.innerHTML = '';
+  out.appendChild(box);
+
+  checkHistory.unshift({ msg: raw.slice(0, 60), cls: r.verdict });
+  if (checkHistory.length > 8) checkHistory.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = $('historyList');
+  list.innerHTML = '';
+  if (!checkHistory.length) {
+    const e = document.createElement('div');
+    e.className = 'empty-history';
+    e.textContent = T[lang].emptyHistory;
+    list.appendChild(e);
+    return;
+  }
+  checkHistory.forEach(h => {
+    const row = document.createElement('div');
+    row.className = 'history-item';
+    const p = document.createElement('span');
+    p.className = 'msg-preview';
+    p.textContent = h.msg;         // textContent — ปิดช่อง XSS ของ v0.3
+    const tag = document.createElement('span');
+    tag.className = 'history-tag ' + h.cls;
+    tag.textContent = T[lang].verdict[h.cls].chip;
+    row.append(p, tag);
+    list.appendChild(row);
+  });
+}
+
+function check() {
+  if (!engine) return;
+  const raw = $('msgInput').value.trim();
+  if (!raw) {
+    const t = T[lang];
+    const box = document.createElement('div');
+    box.className = 'verdict unsure';
+    const h = document.createElement('h2'); h.textContent = '? ' + t.empty;
+    const p = document.createElement('p'); p.textContent = t.emptyBody;
+    box.append(h, p);
+    $('result').innerHTML = '';
+    $('result').appendChild(box);
+    return;
+  }
+  renderResult(raw);
+}
+
+/* ---------- OCR: อ่านข้อความจากภาพ ----------
+   โหลด Tesseract เฉพาะตอนผู้ใช้เลือกภาพจริง ๆ (lazy) เพื่อไม่ให้คนที่ไม่ใช้ต้องโหลดไฟล์หนัก
+   ภาพไม่ถูกอัปโหลดไปที่ใด ประมวลผลในเบราว์เซอร์ทั้งหมด เหมือนส่วนอื่นของเครื่องมือนี้ */
+let tesseractLoading = null;
+
+function ocrSay(msg, isErr) {
+  const el = $('ocrStatus');
+  el.textContent = msg || '';
+  el.className = 'ocr-status' + (isErr ? ' err' : '');
+}
+
+function ocrProgress(p) {
+  const bar = $('ocrBar');
+  if (p == null) { bar.style.display = 'none'; return; }
+  bar.style.display = 'block';
+  $('ocrFill').style.width = Math.round(p * 100) + '%';
+}
+
+function loadTesseract() {
+  if (window.Tesseract) return Promise.resolve(window.Tesseract);
+  if (tesseractLoading) return tesseractLoading;
+  tesseractLoading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = OCR.cdn;
+    // กันกรณี CDN ค้างไม่ตอบ ซึ่งจะไม่ยิงทั้ง onload และ onerror
+    const timer = setTimeout(() => { s.remove(); reject(new Error('timeout')); }, 30000);
+    s.onload = () => { clearTimeout(timer); window.Tesseract ? resolve(window.Tesseract) : reject(new Error('no global')); };
+    s.onerror = () => { clearTimeout(timer); s.remove(); reject(new Error('script failed')); };
+    document.head.appendChild(s);
+  }).catch(err => {
+    tesseractLoading = null;   // ล้างทิ้งเพื่อให้กดลองใหม่ได้
+    throw err;
+  });
+  return tesseractLoading;
+}
+
+/** ย่อภาพก่อนส่ง — ลดขนาด payload และตรงกับขนาดที่โมเดลถูกฝึกมา */
+function imageToDataUrl(file, maxDim) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('อ่านไฟล์ภาพไม่ได้')); };
+    img.src = url;
+  });
+}
+
+async function ocrViaProxy(file, t) {
+  ocrSay(t.ocrSending);
+  ocrProgress(0.3);
+  const dataUrl = await imageToDataUrl(file, OCR.maxDim);
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), OCR.timeoutMs);
+  try {
+    const res = await fetch(OCR.proxyUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: dataUrl }),
+      signal: ctrl.signal
+    });
+    ocrProgress(0.9);
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json.error || ('HTTP ' + res.status));
+    return (json.text || '').trim();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function ocrViaTesseract(file, t) {
+  ocrSay(t.ocrLoading);
+  ocrProgress(0);
+  const Tess = await loadTesseract();
+  ocrSay(t.ocrReading);
+  const { data } = await Tess.recognize(file, OCR.langs, {
+    logger: m => { if (m.status === 'recognizing text') ocrProgress(m.progress); }
+  });
+  return (data.text || '').replace(/[ \t]+\n/g, '\n').trim();
+}
+
+async function runOcr(file) {
+  const t = T[lang];
+  if (!file || !file.type.startsWith('image/')) { ocrSay(t.ocrNotImage, true); return; }
+
+  const useProxy = Boolean(OCR.proxyUrl);
+  $('ocrPick').disabled = true;
+  $('ocrNote').style.display = 'block';
+  $('ocrNote').textContent = useProxy ? t.ocrPrivacyCloud : t.ocrNote;
+
+  try {
+    const text = useProxy ? await ocrViaProxy(file, t) : await ocrViaTesseract(file, t);
+    ocrProgress(null);
+    if (!text) { ocrSay(t.ocrEmpty, true); return; }
+
+    $('msgInput').value = text;
+    updateCount();
+    ocrSay(t.ocrDone);
+    $('msgInput').focus();
+  } catch (err) {
+    ocrProgress(null);
+    const base = useProxy ? t.ocrProxyFail : t.ocrFail;
+    ocrSay(base + ' (' + (err.name === 'AbortError' ? 'timeout' : err.message) + ')', true);
+  } finally {
+    $('ocrPick').disabled = false;
+  }
+}
+
+$('ocrPick').addEventListener('click', () => $('ocrFile').click());
+$('ocrFile').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; runOcr(f); });
+
+const zone = $('ocrZone');
+['dragenter', 'dragover'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add('drag'); }));
+['dragleave', 'drop'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove('drag'); }));
+zone.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) runOcr(f); });
+
+document.addEventListener('paste', e => {
+  const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+  if (!item) return;                    // วางข้อความธรรมดา ปล่อยให้ textarea ทำงานตามปกติ
+  e.preventDefault();
+  runOcr(item.getAsFile());
+});
+
+/* ---------- events (addEventListener ทั้งหมด ไม่มี inline onclick) ---------- */
+$('btnEn').addEventListener('click', () => { lang = 'en'; applyLang(); });
+$('btnTh').addEventListener('click', () => { lang = 'th'; applyLang(); });
+$('msgInput').addEventListener('input', updateCount);
+$('checkBtn').addEventListener('click', check);
+$('clearBtn').addEventListener('click', () => {
+  $('msgInput').value = '';
+  updateCount();
+  $('result').innerHTML = '';
+});
+
+applyLang();
+updateCount();
+</script>
+</body>
+</html>

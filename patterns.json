@@ -1,0 +1,266 @@
+{
+  "version": "0.4.0",
+  "updated": "2026-08-09",
+  "note": "แก้ไฟล์นี้เพื่อเพิ่ม/ลบ wording ได้เลย ไม่ต้องแตะโค้ด | w = น้ำหนัก 1-5 | cat = หมวด (นับสูงสุด 1 ครั้งต่อหมวด กันคะแนนเฟ้อ)",
+
+  "thresholds": {
+    "scamMargin": 4,
+    "legitMargin": 2,
+    "strength": { "medium": 5, "high": 9 }
+  },
+
+  "negations": {
+    "en": ["do not", "don't", "dont", "never", "will never", "won't", "wont", "no need to", "we do not", "we don't"],
+    "th": ["ห้าม", "อย่า", "ไม่ควร", "จะไม่", "ไม่มีนโยบาย", "ไม่ได้ขอ", "ไม่เคยขอ"]
+  },
+  "negationWindow": { "en": 34, "th": 26 },
+
+  "categories": {
+    "otp_request":        { "en": "asks for your OTP",              "th": "ขอรหัส OTP จากคุณ" },
+    "credential_request": { "en": "asks for password / PIN / bank details", "th": "ขอรหัสผ่าน PIN หรือข้อมูลบัญชี" },
+    "account_threat":     { "en": "threatens to suspend the account", "th": "ขู่ว่าบัญชีจะถูกระงับ" },
+    "urgency":            { "en": "artificial urgency",              "th": "เร่งรัดให้รีบทำ" },
+    "click_link":         { "en": "pushes you to click a link",      "th": "ผลักให้กดลิงก์" },
+    "prize":              { "en": "unsolicited prize or reward",     "th": "อ้างว่าได้รางวัลโดยไม่ได้สมัคร" },
+    "delivery":           { "en": "fake parcel / customs fee",       "th": "อ้างพัสดุตกค้าง เก็บค่าธรรมเนียม" },
+    "loan":               { "en": "suspicious loan offer",           "th": "เสนอเงินกู้ผิดปกติ" },
+    "job":                { "en": "suspicious job offer",            "th": "ชวนทำงานรายได้ง่ายผิดปกติ" },
+    "investment":         { "en": "investment scam pitch",           "th": "ชวนลงทุนแบบการันตีผลตอบแทน" },
+    "gambling":           { "en": "online gambling pitch",           "th": "ชวนเล่นพนันออนไลน์" },
+    "impersonate_bank":   { "en": "impersonates a bank",             "th": "แอบอ้างเป็นธนาคาร" },
+    "impersonate_gov":    { "en": "impersonates a government agency", "th": "แอบอ้างเป็นหน่วยงานรัฐ" },
+    "personal_money":     { "en": "someone you know asking for money", "th": "อ้างเป็นคนรู้จักขอยืมเงิน" },
+    "app_install":        { "en": "tells you to install an app",     "th": "ให้ติดตั้งแอปพลิเคชัน" },
+    "add_line":           { "en": "asks you to add a LINE account",  "th": "ให้แอด LINE" },
+    "refund_claim":       { "en": "fake refund / grant",             "th": "อ้างเงินคืนหรือเงินช่วยเหลือ" },
+
+    "txn_confirm":        { "en": "transaction confirmation",        "th": "แจ้งผลทำรายการสำเร็จ" },
+    "balance":            { "en": "balance notification",            "th": "แจ้งยอดคงเหลือ" },
+    "statement":          { "en": "statement or bill notice",        "th": "แจ้งใบแจ้งยอด" },
+    "automated":          { "en": "standard automated notice",       "th": "ข้อความอัตโนมัติมาตรฐาน" },
+    "security_advice":    { "en": "genuine bank security advice",    "th": "คำเตือนความปลอดภัยของธนาคาร" },
+    "otp_delivery":       { "en": "delivers an OTP to you",          "th": "ส่งรหัส OTP มาให้คุณ" },
+    "maintenance":        { "en": "service maintenance notice",      "th": "แจ้งปิดปรับปรุงระบบ" },
+
+    "link_short":         { "en": "shortened link",                  "th": "ลิงก์ย่อ" },
+    "link_untrusted":     { "en": "link to a non-bank domain",       "th": "ลิงก์ไปโดเมนที่ไม่ใช่ของธนาคาร" },
+    "link_apk":           { "en": "link to an installable app file", "th": "ลิงก์ไฟล์ติดตั้งแอป" },
+    "punct":              { "en": "excessive urgency punctuation",   "th": "เครื่องหมายเร่งเร้าเกินปกติ" }
+  },
+
+  "scam": [
+    { "id": "s_en_send_otp",        "lang": "en", "cat": "otp_request",        "match": "send your otp", "w": 5 },
+    { "id": "s_en_share_otp",       "lang": "en", "cat": "otp_request",        "match": "share your otp", "w": 5 },
+    { "id": "s_en_provide_otp",     "lang": "en", "cat": "otp_request",        "match": "provide the otp", "w": 5 },
+    { "id": "s_en_confirm_otp",     "lang": "en", "cat": "otp_request",        "match": "reply with the code", "w": 4 },
+    { "id": "s_th_send_otp",        "lang": "th", "cat": "otp_request",        "match": "ส่ง otp", "w": 5 },
+    { "id": "s_th_send_otp2",       "lang": "th", "cat": "otp_request",        "match": "ส่งรหัส otp", "w": 5 },
+    { "id": "s_th_tell_otp",        "lang": "th", "cat": "otp_request",        "match": "แจ้งรหัส otp", "w": 5 },
+    { "id": "s_th_tell_otp2",       "lang": "th", "cat": "otp_request",        "match": "บอกรหัส otp", "w": 5 },
+
+    { "id": "s_en_bank_details",    "lang": "en", "cat": "credential_request", "match": "send your bank details", "w": 5 },
+    { "id": "s_en_share_pw",        "lang": "en", "cat": "credential_request", "match": "share your password", "w": 5 },
+    { "id": "s_en_share_pin",       "lang": "en", "cat": "credential_request", "match": "share your pin", "w": 5 },
+    { "id": "s_en_confirm_card",    "lang": "en", "cat": "credential_request", "match": "confirm your card number", "w": 5 },
+    { "id": "s_th_fill_info",       "lang": "th", "cat": "credential_request", "match": "กรอกข้อมูลส่วนตัว", "w": 4 },
+    { "id": "s_th_fill_bank",       "lang": "th", "cat": "credential_request", "match": "กรอกเลขบัญชี", "w": 4 },
+    { "id": "s_th_fill_pw",         "lang": "th", "cat": "credential_request", "match": "กรอกรหัสผ่าน", "w": 5 },
+    { "id": "s_th_confirm_id",      "lang": "th", "cat": "credential_request", "match": "ยืนยันตัวตน", "w": 3 },
+    { "id": "s_th_confirm_info",    "lang": "th", "cat": "credential_request", "match": "ยืนยันข้อมูล", "w": 3 },
+
+    { "id": "s_en_suspend",         "lang": "en", "cat": "account_threat",     "match": "will be suspended", "w": 4 },
+    { "id": "s_en_locked",          "lang": "en", "cat": "account_threat",     "match": "account has been locked", "w": 4 },
+    { "id": "s_en_frozen",          "lang": "en", "cat": "account_threat",     "match": "account is frozen", "w": 4 },
+    { "id": "s_en_unusual",         "lang": "en", "cat": "account_threat",     "match": "unusual activity detected", "w": 2 },
+    { "id": "s_th_suspend",         "lang": "th", "cat": "account_threat",     "match": "บัญชีจะถูกระงับ", "w": 4 },
+    { "id": "s_th_suspend2",        "lang": "th", "cat": "account_threat",     "match": "ระงับการใช้งาน", "w": 3 },
+    { "id": "s_th_suspend3",        "lang": "th", "cat": "account_threat",     "match": "บัญชีถูกอายัด", "w": 4 },
+    { "id": "s_th_abnormal",        "lang": "th", "cat": "account_threat",     "match": "บัญชีผิดปกติ", "w": 3 },
+    { "id": "s_th_abnormal2",       "lang": "th", "cat": "account_threat",     "match": "ตรวจพบธุรกรรมผิดปกติ", "w": 3 },
+
+    { "id": "s_en_urgent",          "lang": "en", "cat": "urgency",            "match": "urgent", "w": 1 },
+    { "id": "s_en_actnow",          "lang": "en", "cat": "urgency",            "match": "act now", "w": 2 },
+    { "id": "s_en_within24",        "lang": "en", "cat": "urgency",            "match": "within 24 hours", "w": 2 },
+    { "id": "s_en_immediately",     "lang": "en", "cat": "urgency",            "match": "immediately or", "w": 2 },
+    { "id": "s_en_limited",         "lang": "en", "cat": "urgency",            "match": "limited time", "w": 2 },
+    { "id": "s_th_urgent",          "lang": "th", "cat": "urgency",            "match": "ด่วน", "w": 1 },
+    { "id": "s_th_urgent2",         "lang": "th", "cat": "urgency",            "match": "ภายใน 24 ชั่วโมง", "w": 2 },
+    { "id": "s_th_urgent3",         "lang": "th", "cat": "urgency",            "match": "มิฉะนั้น", "w": 2 },
+    { "id": "s_th_urgent4",         "lang": "th", "cat": "urgency",            "match": "ก่อนหมดเขต", "w": 2 },
+
+    { "id": "s_en_clickhere",       "lang": "en", "cat": "click_link",         "match": "click here", "w": 3 },
+    { "id": "s_en_clicklink",       "lang": "en", "cat": "click_link",         "match": "click the link", "w": 3 },
+    { "id": "s_en_verifyacct",      "lang": "en", "cat": "click_link",         "match": "verify your account", "w": 3 },
+    { "id": "s_th_clicklink",       "lang": "th", "cat": "click_link",         "match": "กดลิงก์", "w": 3 },
+    { "id": "s_th_clicklink2",      "lang": "th", "cat": "click_link",         "match": "คลิกลิงก์", "w": 3 },
+    { "id": "s_th_clicklink3",      "lang": "th", "cat": "click_link",         "match": "กดที่ลิงก์", "w": 3 },
+    { "id": "s_th_clicklink4",      "lang": "th", "cat": "click_link",         "match": "แตะลิงก์", "w": 3 },
+
+    { "id": "s_en_winner",          "lang": "en", "cat": "prize",              "match": "you are a winner", "w": 4 },
+    { "id": "s_en_claimprize",      "lang": "en", "cat": "prize",              "match": "claim your prize", "w": 4 },
+    { "id": "s_en_wonprize",        "lang": "en", "cat": "prize",              "match": "you have won", "w": 4 },
+    { "id": "s_th_prize",           "lang": "th", "cat": "prize",              "match": "คุณได้รับรางวัล", "w": 4 },
+    { "id": "s_th_prize2",          "lang": "th", "cat": "prize",              "match": "รับรางวัลฟรี", "w": 4 },
+    { "id": "s_th_prize3",          "lang": "th", "cat": "prize",              "match": "โชคดีได้รับสิทธิ์", "w": 3 },
+    { "id": "s_th_freecredit",      "lang": "th", "cat": "prize",              "match": "รับเครดิตฟรี", "w": 4 },
+
+    { "id": "s_en_customs",         "lang": "en", "cat": "delivery",           "match": "customs fee", "w": 4 },
+    { "id": "s_en_redelivery",      "lang": "en", "cat": "delivery",           "match": "redelivery fee", "w": 4 },
+    { "id": "s_en_notdelivered",    "lang": "en", "cat": "delivery",           "match": "could not be delivered", "w": 3 },
+    { "id": "s_en_parcelheld",      "lang": "en", "cat": "delivery",           "match": "parcel is held", "w": 3 },
+    { "id": "s_th_parcel_stuck",    "lang": "th", "cat": "delivery",           "match": "พัสดุตกค้าง", "w": 4 },
+    { "id": "s_th_customs",         "lang": "th", "cat": "delivery",           "match": "ศุลกากร", "w": 3 },
+    { "id": "s_th_customs_fee",     "lang": "th", "cat": "delivery",           "match": "ค่าธรรมเนียมพัสดุ", "w": 4 },
+    { "id": "s_th_parcel_fail",     "lang": "th", "cat": "delivery",           "match": "นำจ่ายไม่สำเร็จ", "w": 3 },
+    { "id": "s_th_parcel_addr",     "lang": "th", "cat": "delivery",           "match": "ที่อยู่ไม่ถูกต้อง กรุณาอัปเดต", "w": 4 },
+
+    { "id": "s_en_preapproved",     "lang": "en", "cat": "loan",               "match": "pre-approved loan", "w": 4 },
+    { "id": "s_en_instantloan",     "lang": "en", "cat": "loan",               "match": "instant loan approval", "w": 4 },
+    { "id": "s_en_nocollateral",    "lang": "en", "cat": "loan",               "match": "loan without collateral", "w": 3 },
+    { "id": "s_en_processingfee",   "lang": "en", "cat": "loan",               "match": "processing fee required", "w": 5 },
+    { "id": "s_th_loan_fast",       "lang": "th", "cat": "loan",               "match": "อนุมัติไว", "w": 3 },
+    { "id": "s_th_loan_nobureau",   "lang": "th", "cat": "loan",               "match": "ไม่เช็คบูโร", "w": 5 },
+    { "id": "s_th_loan_nodoc",      "lang": "th", "cat": "loan",               "match": "ไม่ต้องใช้เอกสาร", "w": 3 },
+    { "id": "s_th_loan_urgent",     "lang": "th", "cat": "loan",               "match": "เงินด่วน", "w": 4 },
+    { "id": "s_th_loan_right",      "lang": "th", "cat": "loan",               "match": "ได้รับสิทธิ์กู้", "w": 4 },
+    { "id": "s_th_loan_lowint",     "lang": "th", "cat": "loan",               "match": "ดอกเบี้ยต่ำพิเศษ", "w": 3 },
+
+    { "id": "s_en_wfh",             "lang": "en", "cat": "job",                "match": "work from home", "w": 2 },
+    { "id": "s_en_extraincome",     "lang": "en", "cat": "job",                "match": "earn extra income", "w": 3 },
+    { "id": "s_en_noexp",           "lang": "en", "cat": "job",                "match": "no experience needed", "w": 3 },
+    { "id": "s_en_dailypayout",     "lang": "en", "cat": "job",                "match": "daily payout", "w": 4 },
+    { "id": "s_th_parttime",        "lang": "th", "cat": "job",                "match": "งานพาร์ทไทม์", "w": 2 },
+    { "id": "s_th_likejob",         "lang": "th", "cat": "job",                "match": "กดไลค์", "w": 4 },
+    { "id": "s_th_reviewjob",       "lang": "th", "cat": "job",                "match": "รับงานรีวิวสินค้า", "w": 4 },
+    { "id": "s_th_dailyincome",     "lang": "th", "cat": "job",                "match": "รายได้วันละ", "w": 3 },
+    { "id": "s_th_easyjob",         "lang": "th", "cat": "job",                "match": "ทำที่บ้านได้", "w": 2 },
+    { "id": "s_th_freejob",         "lang": "th", "cat": "job",                "match": "งานง่ายได้เงินไว", "w": 4 },
+
+    { "id": "s_en_guaranteed",      "lang": "en", "cat": "investment",         "match": "guaranteed returns", "w": 4 },
+    { "id": "s_en_double",          "lang": "en", "cat": "investment",         "match": "double your money", "w": 5 },
+    { "id": "s_en_riskfree",        "lang": "en", "cat": "investment",         "match": "risk free", "w": 3 },
+    { "id": "s_en_cryptoinvest",    "lang": "en", "cat": "investment",         "match": "crypto investment", "w": 2 },
+    { "id": "s_th_guarantee",       "lang": "th", "cat": "investment",         "match": "การันตีผลตอบแทน", "w": 5 },
+    { "id": "s_th_profit_daily",    "lang": "th", "cat": "investment",         "match": "กำไรวันละ", "w": 4 },
+    { "id": "s_th_coach",           "lang": "th", "cat": "investment",         "match": "ลงทุนกับโค้ช", "w": 4 },
+    { "id": "s_th_invest_sure",     "lang": "th", "cat": "investment",         "match": "ลงทุนไม่มีความเสี่ยง", "w": 5 },
+    { "id": "s_th_invest_high",     "lang": "th", "cat": "investment",         "match": "ผลตอบแทนสูง", "w": 2 },
+
+    { "id": "s_th_gambling",        "lang": "th", "cat": "gambling",           "match": "สมัครสมาชิกรับโบนัส", "w": 4 },
+    { "id": "s_th_gambling2",       "lang": "th", "cat": "gambling",           "match": "ฝากถอนออโต้", "w": 5 },
+    { "id": "s_th_gambling3",       "lang": "th", "cat": "gambling",           "match": "เว็บตรงไม่ผ่านเอเย่นต์", "w": 5 },
+    { "id": "s_th_gambling4",       "lang": "th", "cat": "gambling",           "match": "สล็อตแตกง่าย", "w": 5 },
+
+    { "id": "s_en_thisisbank",      "lang": "en", "cat": "impersonate_bank",   "match": "this is your bank", "w": 3 },
+    { "id": "s_en_fraudteam",       "lang": "en", "cat": "impersonate_bank",   "match": "bank fraud team", "w": 4 },
+    { "id": "s_en_safeaccount",     "lang": "en", "cat": "impersonate_bank",   "match": "safe account", "w": 4 },
+    { "id": "s_th_bank_notify",     "lang": "th", "cat": "impersonate_bank",   "match": "ธนาคารแจ้งเตือน", "w": 3 },
+    { "id": "s_th_transfer_safe",   "lang": "th", "cat": "impersonate_bank",   "match": "โอนเงินไปบัญชีปลอดภัย", "w": 5 },
+    { "id": "s_th_officer",         "lang": "th", "cat": "impersonate_bank",   "match": "เจ้าหน้าที่ธนาคารติดต่อ", "w": 3 },
+
+    { "id": "s_th_gov_thaid",       "lang": "th", "cat": "impersonate_gov",    "match": "thaid", "w": 3 },
+    { "id": "s_th_gov_revenue",     "lang": "th", "cat": "impersonate_gov",    "match": "กรมสรรพากร", "w": 3 },
+    { "id": "s_th_gov_studentloan", "lang": "th", "cat": "impersonate_gov",    "match": "กยศ", "w": 3 },
+    { "id": "s_th_gov_mflow",       "lang": "th", "cat": "impersonate_gov",    "match": "m-flow", "w": 3 },
+    { "id": "s_th_gov_post",        "lang": "th", "cat": "impersonate_gov",    "match": "ไปรษณีย์ไทยแจ้ง", "w": 3 },
+    { "id": "s_th_gov_police",      "lang": "th", "cat": "impersonate_gov",    "match": "หมายเรียกตำรวจ", "w": 4 },
+    { "id": "s_th_gov_dsi",         "lang": "th", "cat": "impersonate_gov",    "match": "คดีฟอกเงิน", "w": 4 },
+    { "id": "s_th_gov_welfare",     "lang": "th", "cat": "impersonate_gov",    "match": "เงินเยียวยาจากรัฐ", "w": 4 },
+
+    { "id": "s_en_friendhelp",      "lang": "en", "cat": "personal_money",     "match": "your friend needs help", "w": 3 },
+    { "id": "s_en_borrow",          "lang": "en", "cat": "personal_money",     "match": "borrow money urgently", "w": 4 },
+    { "id": "s_en_newnumber",       "lang": "en", "cat": "personal_money",     "match": "changed my number", "w": 3 },
+    { "id": "s_th_borrow",          "lang": "th", "cat": "personal_money",     "match": "ขอยืมเงินด่วน", "w": 4 },
+    { "id": "s_th_newnumber",       "lang": "th", "cat": "personal_money",     "match": "เปลี่ยนเบอร์ใหม่", "w": 3 },
+
+    { "id": "s_en_installapp",      "lang": "en", "cat": "app_install",        "match": "install the app to verify", "w": 4 },
+    { "id": "s_th_installapp",      "lang": "th", "cat": "app_install",        "match": "ติดตั้งแอป", "w": 3 },
+    { "id": "s_th_installapp2",     "lang": "th", "cat": "app_install",        "match": "ดาวน์โหลดแอปเพื่อยืนยัน", "w": 5 },
+    { "id": "s_th_allowinstall",    "lang": "th", "cat": "app_install",        "match": "อนุญาตติดตั้งจากแหล่งที่ไม่รู้จัก", "w": 5 },
+
+    { "id": "s_en_addline",         "lang": "en", "cat": "add_line",           "match": "add this line id", "w": 4 },
+    { "id": "s_th_addline",         "lang": "th", "cat": "add_line",           "match": "แอดไลน์", "w": 4 },
+    { "id": "s_th_addline2",        "lang": "th", "cat": "add_line",           "match": "ทักไลน์", "w": 4 },
+    { "id": "s_th_addline3",        "lang": "th", "cat": "add_line",           "match": "ทักแชทมาที่", "w": 3 },
+
+    { "id": "s_en_taxrefund",       "lang": "en", "cat": "refund_claim",       "match": "eligible for a refund", "w": 4 },
+    { "id": "s_en_govgrant",        "lang": "en", "cat": "refund_claim",       "match": "government grant", "w": 4 },
+    { "id": "s_th_taxrefund",       "lang": "th", "cat": "refund_claim",       "match": "ขอคืนภาษี", "w": 3 },
+    { "id": "s_th_refund_right",    "lang": "th", "cat": "refund_claim",       "match": "ได้รับสิทธิ์เงินคืน", "w": 4 },
+    { "id": "s_th_wrongtransfer",   "lang": "th", "cat": "refund_claim",       "match": "โอนผิด", "w": 3 }
+  ],
+
+  "legit": [
+    { "id": "l_en_txn_ok",          "lang": "en", "cat": "txn_confirm",        "match": "transaction successful", "w": 3 },
+    { "id": "l_en_credited",        "lang": "en", "cat": "txn_confirm",        "match": "amount credited", "w": 3 },
+    { "id": "l_en_payment_recv",    "lang": "en", "cat": "txn_confirm",        "match": "payment received", "w": 3 },
+    { "id": "l_en_successat",       "lang": "en", "cat": "txn_confirm",        "match": "was successful at", "w": 3 },
+    { "id": "l_en_purchase",        "lang": "en", "cat": "txn_confirm",        "match": "purchase confirmed", "w": 3 },
+    { "id": "l_th_txn_ok",          "lang": "th", "cat": "txn_confirm",        "match": "ทำรายการสำเร็จ", "w": 3 },
+    { "id": "l_th_credited",        "lang": "th", "cat": "txn_confirm",        "match": "ยอดโอนเข้า", "w": 3 },
+    { "id": "l_th_credited2",       "lang": "th", "cat": "txn_confirm",        "match": "ยอดเงินเข้าบัญชี", "w": 3 },
+    { "id": "l_th_credited3",       "lang": "th", "cat": "txn_confirm",        "match": "เงินเข้าบัญชี", "w": 3 },
+    { "id": "l_th_spent",           "lang": "th", "cat": "txn_confirm",        "match": "ยอดใช้จ่าย", "w": 3 },
+    { "id": "l_th_paid",            "lang": "th", "cat": "txn_confirm",        "match": "ชำระเงินเรียบร้อย", "w": 3 },
+    { "id": "l_th_slip",            "lang": "th", "cat": "txn_confirm",        "match": "สลิปโอนเงิน", "w": 2 },
+
+    { "id": "l_en_balance",         "lang": "en", "cat": "balance",            "match": "your balance", "w": 2 },
+    { "id": "l_en_availbal",        "lang": "en", "cat": "balance",            "match": "available balance", "w": 2 },
+    { "id": "l_th_balance",         "lang": "th", "cat": "balance",            "match": "คงเหลือ", "w": 2 },
+    { "id": "l_th_balance2",        "lang": "th", "cat": "balance",            "match": "ยอดคงเหลือ", "w": 3 },
+
+    { "id": "l_en_statement",       "lang": "en", "cat": "statement",          "match": "statement is ready", "w": 3 },
+    { "id": "l_en_billpay",         "lang": "en", "cat": "statement",          "match": "bill payment successful", "w": 3 },
+    { "id": "l_en_refnum",          "lang": "en", "cat": "statement",          "match": "reference number", "w": 2 },
+    { "id": "l_th_statement",       "lang": "th", "cat": "statement",          "match": "ใบแจ้งยอด", "w": 3 },
+    { "id": "l_th_refnum",          "lang": "th", "cat": "statement",          "match": "เลขที่อ้างอิง", "w": 2 },
+
+    { "id": "l_en_noreply",         "lang": "en", "cat": "automated",          "match": "do not reply", "w": 2 },
+    { "id": "l_en_automated",       "lang": "en", "cat": "automated",          "match": "this is an automated message", "w": 2 },
+    { "id": "l_th_noreply",         "lang": "th", "cat": "automated",          "match": "ข้อความอัตโนมัติ", "w": 2 },
+    { "id": "l_th_noreply2",        "lang": "th", "cat": "automated",          "match": "ไม่ต้องตอบกลับ", "w": 2 },
+
+    { "id": "l_en_neverask",        "lang": "en", "cat": "security_advice",    "match": "we will never ask", "w": 4 },
+    { "id": "l_en_nevershare",      "lang": "en", "cat": "security_advice",    "match": "never share your otp", "w": 4 },
+    { "id": "l_en_donotshare",      "lang": "en", "cat": "security_advice",    "match": "do not share it with anyone", "w": 4 },
+    { "id": "l_th_neverask",        "lang": "th", "cat": "security_advice",    "match": "ธนาคารไม่มีนโยบายขอ", "w": 5 },
+    { "id": "l_th_nevershare",      "lang": "th", "cat": "security_advice",    "match": "ห้ามบอกผู้อื่น", "w": 4 },
+    { "id": "l_th_nevershare2",     "lang": "th", "cat": "security_advice",    "match": "ห้ามเปิดเผยรหัส", "w": 4 },
+    { "id": "l_th_callcenter",      "lang": "th", "cat": "security_advice",    "match": "โทรติดต่อคอลเซ็นเตอร์", "w": 2 },
+
+    { "id": "l_en_otp_is",          "lang": "en", "cat": "otp_delivery",       "match": "your one time password is", "w": 4 },
+    { "id": "l_en_otp_is2",         "lang": "en", "cat": "otp_delivery",       "match": "your otp is", "w": 4 },
+    { "id": "l_en_otp_is3",         "lang": "en", "cat": "otp_delivery",       "match": "verification code is", "w": 4 },
+    { "id": "l_th_otp_is",          "lang": "th", "cat": "otp_delivery",       "match": "รหัส otp ของคุณคือ", "w": 4 },
+    { "id": "l_th_otp_is2",         "lang": "th", "cat": "otp_delivery",       "match": "รหัสยืนยันคือ", "w": 4 },
+    { "id": "l_th_otp_ref",         "lang": "th", "cat": "otp_delivery",       "match": "ref:", "w": 1 },
+
+    { "id": "l_en_maint",           "lang": "en", "cat": "maintenance",        "match": "scheduled maintenance", "w": 3 },
+    { "id": "l_th_maint",           "lang": "th", "cat": "maintenance",        "match": "ปิดปรับปรุงระบบ", "w": 3 },
+    { "id": "l_th_maint2",          "lang": "th", "cat": "maintenance",        "match": "งดให้บริการชั่วคราว", "w": 3 }
+  ],
+
+  "risk": [
+    { "id": "r_shortlink", "cat": "link_short", "regex": "bit\\.ly|tinyurl|goo\\.gl|is\\.gd|cutt\\.ly|shorturl|t\\.ly|rb\\.gy", "flags": "i", "w": 4 },
+    { "id": "r_apk",       "cat": "link_apk",   "regex": "\\.apk\\b|\\.ipa\\b",                                              "flags": "i", "w": 5 },
+    { "id": "r_punct",     "cat": "punct",      "regex": "[!]{2,}",                                                          "flags": "",  "w": 1 }
+  ],
+
+  "linkCheck": {
+    "enabled": true,
+    "weightUntrusted": 4,
+    "note": "โดเมนที่ไม่อยู่ในรายการนี้ + ข้อความอ้างถึงธนาคาร/หน่วยงานรัฐ = สัญญาณแรง เพิ่มโดเมนของลูกค้าเองได้",
+    "trustedDomains": [
+      "scb.co.th", "kasikornbank.com", "kbank.co.th", "bangkokbank.com", "krungsri.com",
+      "krungthai.com", "ktb.co.th", "ttbbank.com", "uob.co.th", "gsb.or.th", "baac.or.th",
+      "citibank.co.th", "cimbthai.com", "lhbank.co.th", "tisco.co.th", "kkpfg.com",
+      "thaipost.co.th", "rd.go.th", "dopa.go.th", "studentloan.or.th", "mflowthai.com",
+      "promptpay.io", "bot.or.th"
+    ],
+    "bankMentions": [
+      "kbank", "scb", "krungthai", "krungsri", "bangkok bank", "ttb", "uob", "gsb",
+      "ธนาคาร", "กรุงไทย", "กสิกร", "ไทยพาณิชย์", "กรุงเทพ", "กรุงศรี", "ออมสิน",
+      "สรรพากร", "กยศ", "ไปรษณีย์", "ศุลกากร", "thaid", "m-flow"
+    ]
+  }
+}
