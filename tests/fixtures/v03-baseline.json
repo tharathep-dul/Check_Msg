@@ -1,0 +1,409 @@
+{
+  "note": "คลังคำของ ChekMsg v0.3 คัดลอกจาก index.html ที่ deploy อยู่บน GitHub Pages (ren3-dev-svg/chekMsg commit 258f464) เก็บไว้เพื่อให้เทียบตัวเลข v0.3 กับรุ่นปัจจุบันได้โดยไม่ต้องต่อเน็ต",
+  "source": "https://ren3-dev-svg.github.io/chekMsg/",
+  "capturedAt": "2026-08-11",
+  "scamWords": [
+    [
+      "รางวัล",
+      "prize win",
+      3
+    ],
+    [
+      "โอนเงินด่วน",
+      "urgent transfer",
+      3
+    ],
+    [
+      "กดลิงก์",
+      "click link",
+      3
+    ],
+    [
+      "บัญชีของคุณจะถูกระงับ",
+      "account will be suspended",
+      3
+    ],
+    [
+      "ยืนยันตัวตน",
+      "verify identity",
+      2
+    ],
+    [
+      "เงินคืน",
+      "refund claim",
+      2
+    ],
+    [
+      "ส่ง otp",
+      "send otp",
+      4
+    ],
+    [
+      "ลิงก์ปลอม",
+      "fake link",
+      4
+    ],
+    [
+      "ไม่ต้องเสียค่าใช้จ่าย",
+      "no cost / free money",
+      2
+    ],
+    [
+      "กยศ. โอนผิด",
+      "student loan wrong transfer",
+      3
+    ],
+    [
+      "click here",
+      "click here",
+      3
+    ],
+    [
+      "verify your account",
+      "verify your account",
+      3
+    ],
+    [
+      "suspended",
+      "account suspended",
+      2
+    ],
+    [
+      "urgent",
+      "urgent action",
+      1
+    ],
+    [
+      "claim your",
+      "claim your prize",
+      2
+    ],
+    [
+      "winner",
+      "you are a winner",
+      3
+    ],
+    [
+      "otp code",
+      "otp code request",
+      4
+    ],
+    [
+      "act now",
+      "act now",
+      2
+    ],
+    [
+      "limited time",
+      "limited time pressure",
+      2
+    ],
+    [
+      "confirm your identity",
+      "confirm your identity",
+      2
+    ],
+    [
+      "failed delivery",
+      "fake delivery notice",
+      2
+    ],
+    [
+      "parcel is held",
+      "fake parcel hold",
+      2
+    ],
+    [
+      "customs fee",
+      "fake customs fee",
+      3
+    ],
+    [
+      "redelivery fee",
+      "fake redelivery charge",
+      3
+    ],
+    [
+      "package could not be delivered",
+      "fake delivery failure",
+      2
+    ],
+    [
+      "work from home",
+      "suspicious job offer",
+      2
+    ],
+    [
+      "earn extra income",
+      "suspicious income offer",
+      2
+    ],
+    [
+      "part time job opportunity",
+      "suspicious job offer",
+      2
+    ],
+    [
+      "no experience needed",
+      "suspicious job offer",
+      2
+    ],
+    [
+      "daily payout",
+      "suspicious payout promise",
+      3
+    ],
+    [
+      "easy money",
+      "suspicious easy money claim",
+      2
+    ],
+    [
+      "pre-approved loan",
+      "fake pre-approved loan",
+      3
+    ],
+    [
+      "instant loan approval",
+      "fake instant loan",
+      3
+    ],
+    [
+      "low interest loan",
+      "suspicious loan offer",
+      2
+    ],
+    [
+      "loan without collateral",
+      "suspicious loan offer",
+      2
+    ],
+    [
+      "processing fee required",
+      "upfront fee scam",
+      4
+    ],
+    [
+      "this is your bank",
+      "impersonation opener",
+      2
+    ],
+    [
+      "official line account",
+      "fake official account claim",
+      2
+    ],
+    [
+      "add this line id",
+      "suspicious line id request",
+      3
+    ],
+    [
+      "your friend needs help",
+      "impersonation urgency",
+      2
+    ],
+    [
+      "borrow money urgently",
+      "impersonation money request",
+      3
+    ],
+    [
+      "changed my number",
+      "impersonation number change",
+      2
+    ],
+    [
+      "guaranteed returns",
+      "investment scam claim",
+      3
+    ],
+    [
+      "double your money",
+      "investment scam claim",
+      4
+    ],
+    [
+      "crypto investment",
+      "crypto investment pitch",
+      2
+    ],
+    [
+      "invest now",
+      "investment urgency",
+      2
+    ],
+    [
+      "risk free",
+      "risk free promise (red flag)",
+      3
+    ],
+    [
+      "tax refund",
+      "fake tax refund claim",
+      2
+    ],
+    [
+      "eligible for a refund",
+      "fake refund eligibility",
+      3
+    ],
+    [
+      "government grant",
+      "fake government grant",
+      3
+    ],
+    [
+      "send your bank details",
+      "direct bank detail request",
+      4
+    ],
+    [
+      "share your password",
+      "password request",
+      4
+    ],
+    [
+      "share your pin",
+      "pin request",
+      4
+    ],
+    [
+      "one time password",
+      "otp phrasing",
+      3
+    ]
+  ],
+  "legitWords": [
+    [
+      "ยอดโอนเข้า",
+      "amount credited",
+      3
+    ],
+    [
+      "สลิปโอนเงิน",
+      "transfer slip",
+      2
+    ],
+    [
+      "ทำรายการสำเร็จ",
+      "transaction successful",
+      3
+    ],
+    [
+      "เข้าระบบด้วยแอปเท่านั้น",
+      "official app login notice",
+      2
+    ],
+    [
+      "transaction successful",
+      "transaction successful",
+      3
+    ],
+    [
+      "amount credited",
+      "amount credited",
+      3
+    ],
+    [
+      "statement is ready",
+      "statement is ready",
+      2
+    ],
+    [
+      "payment received",
+      "payment received",
+      2
+    ],
+    [
+      "your balance",
+      "balance update",
+      2
+    ],
+    [
+      "scheduled maintenance",
+      "scheduled maintenance",
+      2
+    ],
+    [
+      "was successful at",
+      "purchase confirmation",
+      3
+    ],
+    [
+      "payment of",
+      "payment confirmation",
+      2
+    ],
+    [
+      "thank you for your payment",
+      "payment confirmation",
+      2
+    ],
+    [
+      "purchase confirmed",
+      "purchase confirmation",
+      2
+    ],
+    [
+      "your order has been",
+      "order confirmation",
+      2
+    ],
+    [
+      "bill payment successful",
+      "bill payment confirmation",
+      2
+    ],
+    [
+      "do not reply",
+      "standard automated notice",
+      1
+    ],
+    [
+      "this is an automated message",
+      "standard automated notice",
+      1
+    ],
+    [
+      "never share your otp",
+      "genuine bank security notice",
+      3
+    ],
+    [
+      "we will never ask for your password",
+      "genuine bank security notice",
+      4
+    ],
+    [
+      "available balance",
+      "balance notice",
+      2
+    ],
+    [
+      "reference number",
+      "transaction reference",
+      2
+    ]
+  ],
+  "riskPatterns": [
+    {
+      "regex": "bit\\.ly|tinyurl|goo\\.gl|is\\.gd",
+      "flags": "i",
+      "label": "shortened link",
+      "weight": 3
+    },
+    {
+      "regex": "\\b\\d{10,}\\b",
+      "flags": "",
+      "label": "unusual long number string",
+      "weight": 1
+    },
+    {
+      "regex": "[!]{2,}",
+      "flags": "",
+      "label": "excessive urgency punctuation",
+      "weight": 1
+    }
+  ]
+}

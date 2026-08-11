@@ -8,6 +8,7 @@
     "build": "node build.js",
     "test": "node tests/run-tests.js",
     "test:report": "node tests/run-tests.js --md tests/last-report.md",
-    "serve": "python3 -m http.server 8080"
+    "serve": "python3 -m http.server 8080",
+    "compare": "node tools/compare-versions.mjs"
   }
 }
