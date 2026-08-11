@@ -1,110 +1,116 @@
 {
-  "version": "0.4.0",
-  "updated": "2026-08-09",
+  "version": "0.5.0",
+  "updated": "2026-08-11",
   "note": "ชุดทดสอบแยกจาก pattern library โดยตั้งใจ — ห้ามลอกประโยคจาก patterns.json มาใส่ที่นี่ เพราะจะทำให้คะแนนสูงปลอม ๆ เหมือน self-test ของ v0.3",
-  "howToGrade": {
-    "correct": "ตอบตรงกับ expect",
-    "soft_miss": "ตอบ unsure ทั้งที่ควรตอบชัด — ไม่อันตราย แต่แปลว่าเครื่องมือไม่ช่วยอะไร",
-    "hard_miss": "ตอบผิดข้าง — scam ที่ถูกตอบว่า legit คือความผิดพลาดที่แพงที่สุด"
-  },
-
+  "howToGrade": {"correct":"ตอบตรงกับ expect","soft_miss":"ตอบ unsure ทั้งที่ควรตอบชัด — ไม่อันตราย แต่แปลว่าเครื่องมือไม่ช่วยอะไร","hard_miss":"ตอบผิดข้าง — scam ที่ถูกตอบว่า legit คือความผิดพลาดที่แพงที่สุด"},
   "sets": {
     "regression_v03": {
       "label": "ชุดเดิมของ v0.3 (ใช้ดูว่าแก้แล้วของเดิมไม่พัง)",
       "warning": "ชุดนี้เขียนจาก keyword library ของ v0.3 เอง จึงได้คะแนนสูงโดยธรรมชาติ ห้ามใช้ตัวเลขจากชุดนี้อ้างความแม่นยำ",
       "cases": [
-        { "id": "r01", "lang": "en", "expect": "scam",  "text": "Your account will be suspended, click here to verify your identity now" },
-        { "id": "r02", "lang": "en", "expect": "legit", "text": "Transaction successful. Amount credited THB 500. Your balance is THB 3200." },
-        { "id": "r03", "lang": "en", "expect": "scam",  "text": "You are a WINNER! Claim your prize now, limited time only" },
-        { "id": "r04", "lang": "en", "expect": "scam",  "text": "Your parcel could not be delivered, pay a small customs fee to reschedule" },
-        { "id": "r05", "lang": "en", "expect": "legit", "text": "Statement is ready to view in your app." },
-        { "id": "r06", "lang": "en", "expect": "scam",  "text": "Earn extra income from home, daily payout, no experience needed" },
-        { "id": "r07", "lang": "en", "expect": "scam",  "text": "This is your bank, we noticed unusual activity, act now to confirm your identity" },
-        { "id": "r08", "lang": "en", "expect": "legit", "text": "Payment received for your electricity bill, thank you." },
-        { "id": "r09", "lang": "en", "expect": "scam",  "text": "Add this LINE ID, your friend urgently needs help borrowing money" },
-        { "id": "r10", "lang": "en", "expect": "legit", "text": "Scheduled maintenance on our app tonight from 12am to 2am." },
-        { "id": "r11", "lang": "en", "expect": "scam",  "text": "Pre-approved loan available, instant approval, processing fee required first" },
-        { "id": "r12", "lang": "en", "expect": "scam",  "text": "Your OTP code is required to verify a suspicious login, send your OTP now" },
-        { "id": "r13", "lang": "th", "expect": "legit", "text": "ยอดโอนเข้าบัญชีของคุณ 1,000 บาท ทำรายการสำเร็จ" },
-        { "id": "r14", "lang": "th", "expect": "scam",  "text": "แจ้งเตือน กยศ. โอนผิด กรุณากดลิงก์ยืนยันตัวตนด่วน มิฉะนั้นบัญชีจะถูกระงับ" },
-        { "id": "r15", "lang": "en", "expect": "legit", "text": "Your card payment of 450 baht was successful at 7-Eleven." }
+        {"id":"r01","lang":"en","expect":"scam","text":"Your account will be suspended, click here to verify your identity now"},
+        {"id":"r02","lang":"en","expect":"legit","text":"Transaction successful. Amount credited THB 500. Your balance is THB 3200."},
+        {"id":"r03","lang":"en","expect":"scam","text":"You are a WINNER! Claim your prize now, limited time only"},
+        {"id":"r04","lang":"en","expect":"scam","text":"Your parcel could not be delivered, pay a small customs fee to reschedule"},
+        {"id":"r05","lang":"en","expect":"legit","text":"Statement is ready to view in your app."},
+        {"id":"r06","lang":"en","expect":"scam","text":"Earn extra income from home, daily payout, no experience needed"},
+        {"id":"r07","lang":"en","expect":"scam","text":"This is your bank, we noticed unusual activity, act now to confirm your identity"},
+        {"id":"r08","lang":"en","expect":"legit","text":"Payment received for your electricity bill, thank you."},
+        {"id":"r09","lang":"en","expect":"scam","text":"Add this LINE ID, your friend urgently needs help borrowing money"},
+        {"id":"r10","lang":"en","expect":"legit","text":"Scheduled maintenance on our app tonight from 12am to 2am."},
+        {"id":"r11","lang":"en","expect":"scam","text":"Pre-approved loan available, instant approval, processing fee required first"},
+        {"id":"r12","lang":"en","expect":"scam","text":"Your OTP code is required to verify a suspicious login, send your OTP now"},
+        {"id":"r13","lang":"th","expect":"legit","text":"ยอดโอนเข้าบัญชีของคุณ 1,000 บาท ทำรายการสำเร็จ"},
+        {"id":"r14","lang":"th","expect":"scam","text":"แจ้งเตือน กยศ. โอนผิด กรุณากดลิงก์ยืนยันตัวตนด่วน มิฉะนั้นบัญชีจะถูกระงับ"},
+        {"id":"r15","lang":"en","expect":"legit","text":"Your card payment of 450 baht was successful at 7-Eleven."}
       ]
     },
-
     "holdout_bank_real": {
       "label": "ข้อความจริงจากธนาคาร/ผู้ให้บริการ (ควรได้ legit)",
       "cases": [
-        { "id": "b01", "lang": "en", "expect": "legit", "text": "Your one time password is 483920. Do not share it with anyone.", "note": "OTP จริง — v0.3 ตอบ scam" },
-        { "id": "b02", "lang": "th", "expect": "legit", "text": "รหัส OTP ของคุณคือ 774512 ห้ามบอกผู้อื่นเด็ดขาด (Ref: KX8821)", "note": "OTP ไทย" },
-        { "id": "b03", "lang": "en", "expect": "legit", "text": "Do not share your PIN or password with anyone, including bank staff.", "note": "คำเตือนของธนาคาร — v0.3 ตอบ scam 74%" },
-        { "id": "b04", "lang": "th", "expect": "legit", "text": "ธนาคารไม่มีนโยบายขอรหัสผ่านหรือ OTP ทาง SMS หากพบผู้แอบอ้าง โทรติดต่อคอลเซ็นเตอร์ 02-777-7777" },
-        { "id": "b05", "lang": "th", "expect": "legit", "text": "SCB: ยอดเงินเข้าบัญชี 2,500.00 บาท คงเหลือ 18,432.10 บาท" },
-        { "id": "b06", "lang": "th", "expect": "legit", "text": "บัตรเครดิตของท่านมียอดใช้จ่าย 1,250 บาท ที่ Lotus เลขที่อ้างอิง 900123456789" },
-        { "id": "b07", "lang": "en", "expect": "legit", "text": "Your account statement for March is now available. Reference number 900123456789." },
-        { "id": "b08", "lang": "th", "expect": "legit", "text": "แจ้งปิดปรับปรุงระบบ วันที่ 15 ส.ค. เวลา 01.00-04.00 น. งดให้บริการชั่วคราว ขออภัยในความไม่สะดวก" },
-        { "id": "b09", "lang": "th", "expect": "legit", "text": "ชำระเงินเรียบร้อย ค่าน้ำประปา 285 บาท ข้อความอัตโนมัติ ไม่ต้องตอบกลับ" },
-        { "id": "b10", "lang": "en", "expect": "legit", "text": "Payment of 450 THB to GRAB completed. Ref: 88221143. Your balance is 8,450 THB." },
-        { "id": "b11", "lang": "th", "expect": "legit", "text": "K PLUS: ทำรายการสำเร็จ โอนเงิน 3,000 บาท ยอดคงเหลือ 12,780.55 บาท" },
-        { "id": "b12", "lang": "en", "expect": "legit", "text": "We detected an urgent security issue on your card. Please call us at the number on the back of your card.", "note": "ธนาคารจริงใช้คำว่า urgent — v0.3 ตอบ scam" }
+        {"id":"b01","lang":"en","expect":"legit","text":"Your one time password is 483920. Do not share it with anyone.","note":"OTP จริง — v0.3 ตอบ scam"},
+        {"id":"b02","lang":"th","expect":"legit","text":"รหัส OTP ของคุณคือ 774512 ห้ามบอกผู้อื่นเด็ดขาด (Ref: KX8821)","note":"OTP ไทย"},
+        {"id":"b03","lang":"en","expect":"legit","text":"Do not share your PIN or password with anyone, including bank staff.","note":"คำเตือนของธนาคาร — v0.3 ตอบ scam 74%"},
+        {"id":"b04","lang":"th","expect":"legit","text":"ธนาคารไม่มีนโยบายขอรหัสผ่านหรือ OTP ทาง SMS หากพบผู้แอบอ้าง โทรติดต่อคอลเซ็นเตอร์ 02-777-7777"},
+        {"id":"b05","lang":"th","expect":"legit","text":"SCB: ยอดเงินเข้าบัญชี 2,500.00 บาท คงเหลือ 18,432.10 บาท"},
+        {"id":"b06","lang":"th","expect":"legit","text":"บัตรเครดิตของท่านมียอดใช้จ่าย 1,250 บาท ที่ Lotus เลขที่อ้างอิง 900123456789"},
+        {"id":"b07","lang":"en","expect":"legit","text":"Your account statement for March is now available. Reference number 900123456789."},
+        {"id":"b08","lang":"th","expect":"legit","text":"แจ้งปิดปรับปรุงระบบ วันที่ 15 ส.ค. เวลา 01.00-04.00 น. งดให้บริการชั่วคราว ขออภัยในความไม่สะดวก"},
+        {"id":"b09","lang":"th","expect":"legit","text":"ชำระเงินเรียบร้อย ค่าน้ำประปา 285 บาท ข้อความอัตโนมัติ ไม่ต้องตอบกลับ"},
+        {"id":"b10","lang":"en","expect":"legit","text":"Payment of 450 THB to GRAB completed. Ref: 88221143. Your balance is 8,450 THB."},
+        {"id":"b11","lang":"th","expect":"legit","text":"K PLUS: ทำรายการสำเร็จ โอนเงิน 3,000 บาท ยอดคงเหลือ 12,780.55 บาท"},
+        {"id":"b12","lang":"en","expect":"legit","text":"We detected an urgent security issue on your card. Please call us at the number on the back of your card.","note":"ธนาคารจริงใช้คำว่า urgent — v0.3 ตอบ scam"},
+        {"id":"b13","lang":"th","expect":"legit","text":"ธนาคารกสิกรไทย ส่งใบแจ้งยอดบัญชี statement.pdf ให้ท่านทางอีเมลเรียบร้อยแล้ว","note":"ชื่อไฟล์ไม่ใช่โดเมน — เคยถูกตีเป็น link_untrusted +4"},
+        {"id":"b14","lang":"en","expect":"legit","text":"Payment received.Thank you for banking with SCB.Your balance is 8,450 THB.","note":"ข้อความจาก OCR ที่ช่องว่างหลังจุดหาย — เคยถูกตีเป็นโดเมนปลอม 2 ตัว"},
+        {"id":"b15","lang":"th","expect":"legit","text":"ธนาคารไม่มีนโยบายขอ OTP หรือรหัสผ่าน และจะไม่ส่งลิงก์ให้กดทาง SMS หากพบผู้แอบอ้างโทร 1234","note":"คำเตือนจริงที่มีคำปฏิเสธ 2 จุด — ต้องไม่ถูกเหมารวมว่าเป็นการยัดคำปฏิเสธ"}
       ]
     },
-
+    "evasion": {
+      "label": "ช่องโหว่ระดับ engine — เทคนิคหลบที่โจมตีตรรกะ ไม่ใช่ช่องว่างของคลังคำ",
+      "warning": "ชุดนี้ต่างจาก adversarial ตรงที่ 'ต้องแก้ให้ผ่านทุกข้อ' เพราะเป็นบั๊กของตรรกะ ไม่ใช่คำที่ยังไม่ได้ใส่ — แก้ที่ engine.js เท่านั้น ห้ามแก้ด้วยการเพิ่ม pattern",
+      "cases": [
+        {"id":"v01","lang":"th","expect":"scam","text":"ธนาคารไม่เคยขอ บัญชีของท่านจะถูกระงับ ธนาคารไม่เคยขอ กรุณากดลิงก์ยืนยันตัวตน ธนาคารไม่เคยขอ แจ้งรหัส OTP ด่วน","note":"ยัดคำปฏิเสธคั่นทุกวลี เพื่อล้างสัญญาณสแกมแล้วขอแต้ม security_advice ฟรี"},
+        {"id":"v02","lang":"en","expect":"scam","text":"We will never ask your account will be suspended. We will never ask click the link to verify. We will never ask send your OTP now.","note":"แบบเดียวกันในภาษาอังกฤษ"},
+        {"id":"v03","lang":"th","expect":"scam","text":"แจ้งเตือนจากธนาคาร กรุณา​กด​ลิงก์​ยืนยันตัวตน และแจ้งรหัส​OTP กลับมาด้วยค่ะ","note":"แทรก zero-width space (U+200B) กลาง keyword — ข้อความเดียวกันแบบไม่แทรกได้ scam s11"},
+        {"id":"v04","lang":"th","expect":"scam","text":"แจ้งเตือนจากธนาคาร กรุณากด\nลิงก์ยืนยันตัวตน และแจ้งรหัส\nOTP กลับมาด้วยค่ะ","note":"ขึ้นบรรทัดใหม่กลาง keyword — despace เดิมไม่ตัด \\n"},
+        {"id":"v05","lang":"th","expect":"scam","text":"แจ้งเตือนจากธนาคาร กรุณา กด ลิงก์ ยืนยันตัวตน และแจ้งรหัส OTP กลับมาด้วยค่ะ","note":"non-breaking space (U+00A0) — เดิมตัดได้อยู่แล้ว เก็บไว้กันพัง"},
+        {"id":"v06","lang":"en","expect":"scam","text":"Notice from your bank. Please‌click‌the‌link to verify, then‌send‌your‌OTP to our agent.","note":"zero-width non-joiner (U+200C) คั่นคำอังกฤษ — ข้อความเดียวกันแบบไม่แทรกได้ scam s8"},
+        {"id":"v07","lang":"th","expect":"scam","text":"แจ้งเตือนจากธนาคาร กรุณากดลิงก์ยืนยันตัวตน และแจ้งรหัส OTP กลับมาด้วยค่ะ","note":"ข้อความอ้างอิงของ v03-v05 แบบไม่แทรกอะไร — ต้องได้ scam เสมอ"}
+      ]
+    },
     "holdout_scam_th": {
       "label": "สแกมไทยที่ระบาดจริง (ควรได้ scam) — อ้างอิงรูปแบบจากประกาศเตือนของตำรวจไซเบอร์/ธนาคาร",
       "cases": [
-        { "id": "s01", "lang": "th", "expect": "scam", "text": "พัสดุตกค้างที่ศุลกากร กรุณาชำระค่าธรรมเนียมพัสดุ 45 บาท ภายใน 24 ชั่วโมง https://th-post-track.xyz/pay" },
-        { "id": "s02", "lang": "th", "expect": "scam", "text": "คุณได้รับสิทธิ์กู้เงินฉุกเฉิน 50,000 บาท อนุมัติไว ไม่เช็คบูโร ไม่ต้องใช้เอกสาร ทักไลน์ @moneyfast" },
-        { "id": "s03", "lang": "th", "expect": "scam", "text": "ธนาคารแจ้งเตือน ตรวจพบธุรกรรมผิดปกติ กรุณายืนยันข้อมูลที่ https://kbank-verify.top ภายในวันนี้" },
-        { "id": "s04", "lang": "th", "expect": "scam", "text": "รับสมัครงานพาร์ทไทม์ กดไลค์คลิปละ 50 บาท รายได้วันละ 1,500 ทำที่บ้านได้ แอดไลน์ @job2026" },
-        { "id": "s05", "lang": "th", "expect": "scam", "text": "ลงทุนกับโค้ช กำไรวันละ 5% การันตีผลตอบแทน ลงทุนไม่มีความเสี่ยง ทักแชทมาที่ไลน์" },
-        { "id": "s06", "lang": "th", "expect": "scam", "text": "กรมสรรพากรแจ้ง ท่านได้รับสิทธิ์เงินคืนภาษี 4,500 บาท กดลิงก์เพื่อยืนยันตัวตน https://rd-refund.online" },
-        { "id": "s07", "lang": "th", "expect": "scam", "text": "แจ้งเตือนจากกรมการปกครอง กรุณาติดตั้งแอป ThaID เวอร์ชันใหม่ https://thaid-update.click/app.apk" },
-        { "id": "s08", "lang": "th", "expect": "scam", "text": "เจ้าหน้าที่ธนาคารติดต่อ บัญชีของท่านพัวพันคดีฟอกเงิน กรุณาโอนเงินไปบัญชีปลอดภัยเพื่อตรวจสอบ" },
-        { "id": "s09", "lang": "th", "expect": "scam", "text": "แม่ เปลี่ยนเบอร์ใหม่นะ ขอยืมเงินด่วน 8,000 เดี๋ยวคืนพรุ่งนี้ โอนมาบัญชีนี้ก่อน" },
-        { "id": "s10", "lang": "th", "expect": "scam", "text": "สมัครสมาชิกรับโบนัส 100% ฝากถอนออโต้ เว็บตรงไม่ผ่านเอเย่นต์ สล็อตแตกง่าย" },
-        { "id": "s11", "lang": "th", "expect": "scam", "text": "M-Flow แจ้งค่าผ่านทางค้างชำระ 320 บาท กดลิงก์ชำระด่วน มิฉะนั้นถูกดำเนินคดี bit.ly/mflow-pay" },
-        { "id": "s12", "lang": "th", "expect": "scam", "text": "คุณได้รับรางวัลจากการจับฉลาก รับเครดิตฟรี 5,000 บาท กดลิงก์รับสิทธิ์ก่อนหมดเขต" }
+        {"id":"s01","lang":"th","expect":"scam","text":"พัสดุตกค้างที่ศุลกากร กรุณาชำระค่าธรรมเนียมพัสดุ 45 บาท ภายใน 24 ชั่วโมง https://th-post-track.xyz/pay"},
+        {"id":"s02","lang":"th","expect":"scam","text":"คุณได้รับสิทธิ์กู้เงินฉุกเฉิน 50,000 บาท อนุมัติไว ไม่เช็คบูโร ไม่ต้องใช้เอกสาร ทักไลน์ @moneyfast"},
+        {"id":"s03","lang":"th","expect":"scam","text":"ธนาคารแจ้งเตือน ตรวจพบธุรกรรมผิดปกติ กรุณายืนยันข้อมูลที่ https://kbank-verify.top ภายในวันนี้"},
+        {"id":"s04","lang":"th","expect":"scam","text":"รับสมัครงานพาร์ทไทม์ กดไลค์คลิปละ 50 บาท รายได้วันละ 1,500 ทำที่บ้านได้ แอดไลน์ @job2026"},
+        {"id":"s05","lang":"th","expect":"scam","text":"ลงทุนกับโค้ช กำไรวันละ 5% การันตีผลตอบแทน ลงทุนไม่มีความเสี่ยง ทักแชทมาที่ไลน์"},
+        {"id":"s06","lang":"th","expect":"scam","text":"กรมสรรพากรแจ้ง ท่านได้รับสิทธิ์เงินคืนภาษี 4,500 บาท กดลิงก์เพื่อยืนยันตัวตน https://rd-refund.online"},
+        {"id":"s07","lang":"th","expect":"scam","text":"แจ้งเตือนจากกรมการปกครอง กรุณาติดตั้งแอป ThaID เวอร์ชันใหม่ https://thaid-update.click/app.apk"},
+        {"id":"s08","lang":"th","expect":"scam","text":"เจ้าหน้าที่ธนาคารติดต่อ บัญชีของท่านพัวพันคดีฟอกเงิน กรุณาโอนเงินไปบัญชีปลอดภัยเพื่อตรวจสอบ"},
+        {"id":"s09","lang":"th","expect":"scam","text":"แม่ เปลี่ยนเบอร์ใหม่นะ ขอยืมเงินด่วน 8,000 เดี๋ยวคืนพรุ่งนี้ โอนมาบัญชีนี้ก่อน"},
+        {"id":"s10","lang":"th","expect":"scam","text":"สมัครสมาชิกรับโบนัส 100% ฝากถอนออโต้ เว็บตรงไม่ผ่านเอเย่นต์ สล็อตแตกง่าย"},
+        {"id":"s11","lang":"th","expect":"scam","text":"M-Flow แจ้งค่าผ่านทางค้างชำระ 320 บาท กดลิงก์ชำระด่วน มิฉะนั้นถูกดำเนินคดี bit.ly/mflow-pay"},
+        {"id":"s12","lang":"th","expect":"scam","text":"คุณได้รับรางวัลจากการจับฉลาก รับเครดิตฟรี 5,000 บาท กดลิงก์รับสิทธิ์ก่อนหมดเขต"}
       ]
     },
-
     "holdout_scam_en": {
       "label": "สแกมภาษาอังกฤษ (ควรได้ scam)",
       "cases": [
-        { "id": "e01", "lang": "en", "expect": "scam", "text": "Hi, I am from the bank fraud team. To secure your funds, transfer them to our safe account now." },
-        { "id": "e02", "lang": "en", "expect": "scam", "text": "Your package could not be delivered due to an unpaid customs fee. Pay here: bit.ly/pay-fee" },
-        { "id": "e03", "lang": "en", "expect": "scam", "text": "Congratulations, you have won a shopping voucher. Click the link to claim your prize before it expires." },
-        { "id": "e04", "lang": "en", "expect": "scam", "text": "Security alert: your account will be suspended within 24 hours. Verify your account at kbank-secure.info" },
-        { "id": "e05", "lang": "en", "expect": "scam", "text": "Guaranteed returns of 30% monthly with zero risk. Double your money in 7 days, message us to start." },
-        { "id": "e06", "lang": "en", "expect": "scam", "text": "Support here. We need to verify a suspicious login, please send your OTP so we can cancel it." }
+        {"id":"e01","lang":"en","expect":"scam","text":"Hi, I am from the bank fraud team. To secure your funds, transfer them to our safe account now."},
+        {"id":"e02","lang":"en","expect":"scam","text":"Your package could not be delivered due to an unpaid customs fee. Pay here: bit.ly/pay-fee"},
+        {"id":"e03","lang":"en","expect":"scam","text":"Congratulations, you have won a shopping voucher. Click the link to claim your prize before it expires."},
+        {"id":"e04","lang":"en","expect":"scam","text":"Security alert: your account will be suspended within 24 hours. Verify your account at kbank-secure.info"},
+        {"id":"e05","lang":"en","expect":"scam","text":"Guaranteed returns of 30% monthly with zero risk. Double your money in 7 days, message us to start."},
+        {"id":"e06","lang":"en","expect":"scam","text":"Support here. We need to verify a suspicious login, please send your OTP so we can cancel it."}
       ]
     },
-
     "adversarial": {
       "label": "ชุดกัดกร่อน — ตั้งใจเขียนให้หลบ pattern ที่มีอยู่ ใช้วัดว่าระบบเปราะแค่ไหนในสนามจริง",
       "warning": "ชุดนี้ควรได้คะแนนต่ำกว่าชุดอื่นเสมอ ถ้าได้คะแนนสูงแปลว่ายังเขียนไม่พอกัด อย่าไล่แก้ pattern ให้ผ่านชุดนี้ทีละข้อ เพราะจะกลายเป็น overfit",
       "cases": [
-        { "id": "x01", "lang": "th", "expect": "scam", "text": "พัสดุของท่านค้างอยู่ที่ด่าน กรุณาชำระค่าภาษีนำเข้า 45 บ. ที่ลิงค์นี้", "note": "เลี่ยงคำว่า ศุลกากร/พัสดุตกค้าง และสะกด ลิงค์ แทน ลิงก์" },
-        { "id": "x02", "lang": "th", "expect": "scam", "text": "แจ้งเตือน บช. ของท่านจะถูกปิดชั่วคราว โปรดยืนยันตน ก ด ลิ ง ก์ ด้านล่าง", "note": "ย่อคำ + แทรกช่องว่างระหว่างตัวอักษร" },
-        { "id": "x03", "lang": "en", "expect": "scam", "text": "Kindly reply with the 6 digit code we just sent so we can cancel the transaction.", "note": "ขอ OTP โดยไม่ใช้คำว่า OTP" },
-        { "id": "x04", "lang": "th", "expect": "scam", "text": "สนใจงานเสริมมั้ยคะ ทำงานผ่านมือถือ วันละ 3 ชม. ได้เงินทุกวัน สอบถามได้ที่ไอดี @work99", "note": "ไม่ใช้คำว่า แอดไลน์/พาร์ทไทม์/รายได้วันละ" },
-        { "id": "x05", "lang": "th", "expect": "scam", "text": "ท่านมีสิทธิ์รับเงินช่วยเหลือจากภาครัฐ 3,000 บาท ลงทะเบียนที่ gov-help.site ก่อน 31 ส.ค.", "note": "ไม่ตรงคำว่า เงินเยียวยาจากรัฐ" },
-        { "id": "x06", "lang": "en", "expect": "scam", "text": "Final notice: unpaid toll of 320 THB. Settle today to avoid legal action. hxxps://toll-pay.info", "note": "ไม่มีคำ urgency ตรง ๆ และ URL ถูกทำให้ผิดรูป" },
-        { "id": "x07", "lang": "th", "expect": "scam", "text": "ผมเจ้าหน้าที่จากหน่วยงานรัฐ บัญชีคุณเกี่ยวข้องกับคดี ต้องย้ายเงินไปพักไว้บัญชีกลางก่อน", "note": "safe-account scam แบบเลี่ยงคำ" },
-        { "id": "x08", "lang": "th", "expect": "legit", "text": "ธนาคารกรุงไทย เสนอสินเชื่อบุคคล ดอกเบี้ยต่ำพิเศษ สมัครได้ที่ krungthai.com หรือสาขาทั่วประเทศ", "note": "โปรโมชั่นสินเชื่อของธนาคารจริง — มีคำที่ตรงกับ pattern เงินกู้" },
-        { "id": "x09", "lang": "th", "expect": "legit", "text": "ไปรษณีย์ไทยแจ้ง พัสดุ EX123456789TH ถึงปลายทางแล้ว ตรวจสอบที่ track.thaipost.co.th", "note": "หน่วยงานจริง + โดเมนจริง" },
-        { "id": "x10", "lang": "en", "expect": "legit", "text": "Reminder: your credit card payment is due tomorrow. Pay via the app to avoid a late fee.", "note": "ธนาคารจริงที่มีความเร่งด่วนตามธรรมชาติ" },
-        { "id": "x11", "lang": "th", "expect": "legit", "text": "ยืนยันการจองโรงแรมเรียบร้อย เข้าพัก 12 ส.ค. หากต้องการยกเลิก กดที่ลิงก์ในอีเมล", "note": "ข้อความปกติที่มีคำว่า กดที่ลิงก์" },
-        { "id": "x12", "lang": "th", "expect": "scam", "text": "อัพเดทข้อมูลบัญชีของคุณก่อนระบบตัดสิทธิ์ กดที่นี่ https://scb-th.verify-now.co", "note": "โดเมนปลอมที่มีชื่อธนาคารอยู่ใน subdomain" }
+        {"id":"x01","lang":"th","expect":"scam","text":"พัสดุของท่านค้างอยู่ที่ด่าน กรุณาชำระค่าภาษีนำเข้า 45 บ. ที่ลิงค์นี้","note":"เลี่ยงคำว่า ศุลกากร/พัสดุตกค้าง และสะกด ลิงค์ แทน ลิงก์"},
+        {"id":"x02","lang":"th","expect":"scam","text":"แจ้งเตือน บช. ของท่านจะถูกปิดชั่วคราว โปรดยืนยันตน ก ด ลิ ง ก์ ด้านล่าง","note":"ย่อคำ + แทรกช่องว่างระหว่างตัวอักษร"},
+        {"id":"x03","lang":"en","expect":"scam","text":"Kindly reply with the 6 digit code we just sent so we can cancel the transaction.","note":"ขอ OTP โดยไม่ใช้คำว่า OTP"},
+        {"id":"x04","lang":"th","expect":"scam","text":"สนใจงานเสริมมั้ยคะ ทำงานผ่านมือถือ วันละ 3 ชม. ได้เงินทุกวัน สอบถามได้ที่ไอดี @work99","note":"ไม่ใช้คำว่า แอดไลน์/พาร์ทไทม์/รายได้วันละ"},
+        {"id":"x05","lang":"th","expect":"scam","text":"ท่านมีสิทธิ์รับเงินช่วยเหลือจากภาครัฐ 3,000 บาท ลงทะเบียนที่ gov-help.site ก่อน 31 ส.ค.","note":"ไม่ตรงคำว่า เงินเยียวยาจากรัฐ"},
+        {"id":"x06","lang":"en","expect":"scam","text":"Final notice: unpaid toll of 320 THB. Settle today to avoid legal action. hxxps://toll-pay.info","note":"ไม่มีคำ urgency ตรง ๆ และ URL ถูกทำให้ผิดรูป"},
+        {"id":"x07","lang":"th","expect":"scam","text":"ผมเจ้าหน้าที่จากหน่วยงานรัฐ บัญชีคุณเกี่ยวข้องกับคดี ต้องย้ายเงินไปพักไว้บัญชีกลางก่อน","note":"safe-account scam แบบเลี่ยงคำ"},
+        {"id":"x08","lang":"th","expect":"legit","text":"ธนาคารกรุงไทย เสนอสินเชื่อบุคคล ดอกเบี้ยต่ำพิเศษ สมัครได้ที่ krungthai.com หรือสาขาทั่วประเทศ","note":"โปรโมชั่นสินเชื่อของธนาคารจริง — มีคำที่ตรงกับ pattern เงินกู้"},
+        {"id":"x09","lang":"th","expect":"legit","text":"ไปรษณีย์ไทยแจ้ง พัสดุ EX123456789TH ถึงปลายทางแล้ว ตรวจสอบที่ track.thaipost.co.th","note":"หน่วยงานจริง + โดเมนจริง"},
+        {"id":"x10","lang":"en","expect":"legit","text":"Reminder: your credit card payment is due tomorrow. Pay via the app to avoid a late fee.","note":"ธนาคารจริงที่มีความเร่งด่วนตามธรรมชาติ"},
+        {"id":"x11","lang":"th","expect":"legit","text":"ยืนยันการจองโรงแรมเรียบร้อย เข้าพัก 12 ส.ค. หากต้องการยกเลิก กดที่ลิงก์ในอีเมล","note":"ข้อความปกติที่มีคำว่า กดที่ลิงก์"},
+        {"id":"x12","lang":"th","expect":"scam","text":"อัพเดทข้อมูลบัญชีของคุณก่อนระบบตัดสิทธิ์ กดที่นี่ https://scb-th.verify-now.co","note":"โดเมนปลอมที่มีชื่อธนาคารอยู่ใน subdomain"}
       ]
     },
-
     "holdout_ambiguous": {
       "label": "ข้อความกำกวมที่ตอบ unsure ได้ (ใช้ดูว่าเครื่องมือไม่มั่วเดา)",
       "cases": [
-        { "id": "a01", "lang": "th", "expect": "unsure", "text": "โอนเงินให้หน่อยนะ เดี๋ยวคืน" },
-        { "id": "a02", "lang": "th", "expect": "unsure", "text": "พรุ่งนี้ประชุมกี่โมงครับ" },
-        { "id": "a03", "lang": "en", "expect": "unsure", "text": "Your appointment has been rescheduled to Friday." },
-        { "id": "a04", "lang": "th", "expect": "unsure", "text": "ส่งของถึงหน้าบ้านแล้วนะครับ ฝากไว้ที่ป้อม" }
+        {"id":"a01","lang":"th","expect":"unsure","text":"โอนเงินให้หน่อยนะ เดี๋ยวคืน"},
+        {"id":"a02","lang":"th","expect":"unsure","text":"พรุ่งนี้ประชุมกี่โมงครับ"},
+        {"id":"a03","lang":"en","expect":"unsure","text":"Your appointment has been rescheduled to Friday."},
+        {"id":"a04","lang":"th","expect":"unsure","text":"ส่งของถึงหน้าบ้านแล้วนะครับ ฝากไว้ที่ป้อม"}
       ]
     }
   }
