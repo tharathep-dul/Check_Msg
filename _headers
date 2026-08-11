@@ -1,0 +1,29 @@
+# HTTP headers สำหรับ Cloudflare Pages — ไฟล์นี้ต้องอยู่ที่ root ของ build output
+# วิธี deploy ทั้งหมดอยู่ใน docs/deploy-cloudflare-pages.md
+#
+# ทำไมต้องมีทั้ง meta CSP ในหน้าเว็บและ header ตรงนี้:
+#   frame-ancestors ใส่ใน <meta> ไม่มีผล ต้องเป็น header จริงเท่านั้น
+#   เบราว์เซอร์บังคับใช้ทั้งสองอันพร้อมกัน โดยยึดอันที่เข้มกว่า
+#   admin.html มี meta CSP ที่เข้มกว่านี้อยู่แล้ว จึงยังถูกล็อกแน่นกว่าโดยอัตโนมัติ
+#
+# ตั้ง OCR.proxyUrl เป็นโดเมนอื่นเมื่อไร ต้องเติมโดเมนนั้นใน connect-src
+# ทั้งไฟล์นี้และ meta ใน index.html ไม่งั้นเบราว์เซอร์บล็อกเงียบ ๆ
+
+/*
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net; worker-src blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://cdn.jsdelivr.net https://tessdata.projectnaptha.com; form-action 'none'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'
+  Strict-Transport-Security: max-age=63072000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+  Cross-Origin-Opener-Policy: same-origin
+
+# ผู้ใช้ต้องได้คลังคำล่าสุดเสมอ ไม่งั้นแก้ pattern แล้วยังเห็นของเก่าไปอีกนาน
+# เพราะ CDN cache ไว้ (โค้ดฝั่ง client ใช้ cache:'no-cache' แต่คุม CDN ไม่ได้)
+/patterns.json
+  Cache-Control: public, max-age=0, must-revalidate
+
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/engine.js
+  Cache-Control: public, max-age=0, must-revalidate

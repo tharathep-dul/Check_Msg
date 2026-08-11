@@ -1,0 +1,11 @@
+# หน้าเครื่องมือให้ค้นเจอได้ ส่วนหน้าจัดการกับชุดทดสอบไม่ต้องเข้า search
+# หมายเหตุ: นี่คือคำขอ ไม่ใช่การป้องกัน — ถ้าต้องการปิด admin จริง ๆ ใช้ Cloudflare Access
+# (ดู docs/deploy-cloudflare-pages.md หัวข้อ "ปิด admin.html")
+
+User-agent: *
+Allow: /$
+Allow: /index.html
+Disallow: /admin.html
+Disallow: /tests/
+Disallow: /docs/
+Disallow: /dist/
