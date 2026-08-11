@@ -1,5 +1,8 @@
 # Deploy ขึ้น Cloudflare Pages
 
+> **มีสองทางเลือก** — หน้านี้คือ Pages (ง่ายที่สุด ไม่มีเครื่องให้ดูแล)
+> ถ้าอยากรันบน VPS ของตัวเองพร้อม `ocr-proxy` โดเมนเดียวกัน ดู [`deploy-vps.md`](deploy-vps.md)
+
 ChekMsg เป็น static site ล้วน ไม่ต้อง build ไม่มี runtime ไม่มี environment variable จึงวางบน Pages ได้ตรง ๆ
 
 ใช้เวลาประมาณ 5 นาที และหลังจากนั้นทุก push ขึ้น `main` จะ deploy ให้เองอัตโนมัติ

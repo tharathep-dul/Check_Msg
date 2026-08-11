@@ -1,0 +1,52 @@
+# ChekMsg — Caddy + Cloudflare (proxied)
+#
+# วางที่ /etc/caddy/Caddyfile แล้ว sudo systemctl reload caddy
+# วิธีติดตั้งทั้งหมดอยู่ใน docs/deploy-vps.md
+#
+# ใช้ Cloudflare Origin Certificate (อายุ 15 ปี) แทน Let's Encrypt เพราะเมื่อเปิด
+# proxy ของ Cloudflare แล้ว TLS-ALPN ทะลุไม่ได้ และ Origin Certificate ไม่ต้องต่ออายุ
+# ต้องตั้ง SSL/TLS mode ใน Cloudflare เป็น "Full (strict)" ให้ตรงกัน
+#
+# แทนที่ chekmsg.example.com ด้วยโดเมนจริงก่อนใช้
+
+chekmsg.example.com {
+	root * /var/www/chekmsg
+	encode zstd gzip
+
+	tls /etc/ssl/cloudflare/origin.pem /etc/ssl/cloudflare/origin.key
+
+	header {
+		Content-Security-Policy "default-src 'none'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net; worker-src blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://cdn.jsdelivr.net https://tessdata.projectnaptha.com; form-action 'none'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'"
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		Cross-Origin-Opener-Policy "same-origin"
+		-Server
+	}
+
+	# ผู้ใช้ต้องได้คลังคำล่าสุดเสมอ — สแกมที่เพิ่งเพิ่มเข้าไปต้องมีผลทันที
+	@fresh path / /index.html /patterns.json /engine.js
+	header @fresh Cache-Control "public, max-age=0, must-revalidate"
+
+	# ไฟล์ที่ไม่ควรเปิดสาธารณะ (หน้า admin เข้าผ่าน SSH tunnel — ดูคู่มือ)
+	@private path /admin.html /tests/* /docs/* /tools/* /deploy/* /.git/* /package.json /package-lock.json /build.js /test-core.js
+	handle @private {
+		respond 404
+	}
+
+	# OCR proxy อยู่โดเมนเดียวกัน จึงเป็น same-origin — connect-src 'self' ครอบคลุมแล้ว
+	# ไม่ต้องแก้ CSP และไม่มี CORS preflight
+	handle_path /ocr* {
+		reverse_proxy localhost:8787 {
+			# ส่ง IP จริงของผู้ใช้ต่อไปให้ ocr-proxy ไม่งั้นการจำกัดอัตราต่อ IP
+			# จะเห็นทุกคำขอมาจาก 127.0.0.1 เหมือนกันหมด แล้วยุบเหลือถังเดียว
+			# เชื่อ header นี้ได้เพราะ firewall ปิดไม่ให้ใครนอกจาก Cloudflare ต่อเข้ามา
+			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+		}
+	}
+
+	handle {
+		file_server
+	}
+}
