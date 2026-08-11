@@ -1,0 +1,56 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      # ไม่มี dependency เลย จึงไม่มีขั้นตอน npm install
+      # run-tests.js คืน exit code 1 เมื่อเจอ hard miss (สแกมถูกตอบว่าเป็นข้อความปกติ)
+      # ซึ่งคือกรณีที่ทำให้คนเสียเงินจริง จึงต้องทำให้ CI แดงทันที
+      - name: ชุดทดสอบ
+        run: npm test
+
+      - name: build ไฟล์ standalone ได้
+        run: node build.js
+
+      # CONTRIBUTING บอกให้ build ก่อน commit ทุกครั้ง ข้อนี้คือตัวบังคับว่าทำจริง
+      # ถ้า dist/ ไม่ตรงกับ index.html + patterns.json ปัจจุบัน แปลว่าลืม build
+      - name: dist/ ตรงกับ source
+        run: |
+          if ! git diff --exit-code --stat dist/; then
+            echo "::error::dist/chekmsg-standalone.html ไม่ตรงกับ source — รัน 'npm run build' แล้ว commit ไฟล์ที่ได้ด้วย"
+            exit 1
+          fi
+
+      - name: ไฟล์ของ ocr-proxy ไม่มี syntax error
+        run: |
+          for f in ocr-proxy/*.js; do node --check "$f"; done
+
+      # ตรวจข้อห้ามข้อแรกใน CONTRIBUTING: ห้ามมี API key หลุดเข้า repo
+      - name: ไม่มี .env หรือ API key ติดมากับ repo
+        run: |
+          if git ls-files | grep -E '(^|/)\.env$'; then
+            echo "::error::มีไฟล์ .env ถูก track อยู่ใน git"
+            exit 1
+          fi
+          if git grep -nE 'sk-[A-Za-z0-9_-]{16,}' -- . ':!.github/workflows/ci.yml'; then
+            echo "::error::พบสิ่งที่ดูเหมือน API key ในซอร์ส"
+            exit 1
+          fi

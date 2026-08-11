@@ -20,6 +20,7 @@ const json = (obj, status, origin) => new Response(JSON.stringify(obj), {
   headers: {
     'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Origin': origin || '*',
+    'Vary': 'Origin',        // คำตอบต่างกันตาม Origin — ไม่มีบรรทัดนี้ cache กลางจะจ่ายผิดคน
     'Cache-Control': 'no-store'
   }
 });
@@ -42,7 +43,8 @@ export default {
           'Access-Control-Allow-Origin': origin || 'null',
           'Access-Control-Allow-Methods': 'POST, OPTIONS',
           'Access-Control-Allow-Headers': 'Content-Type',
-          'Access-Control-Max-Age': '86400'
+          'Access-Control-Max-Age': '86400',
+          'Vary': 'Origin'
         }
       });
     }
@@ -59,6 +61,8 @@ export default {
     if (bad) return json({ error: bad }, 400, origin);
 
     // จำกัดอัตราแบบง่ายด้วย KV ถ้ามีผูกไว้ (ไม่มีก็ข้าม — Typhoon จำกัด 20 req/min อยู่แล้ว)
+    // KV เป็น eventually consistent และ read-then-write นี้ไม่ใช่ atomic คนที่ยิงพร้อมกัน
+    // จากหลาย edge จึงลอดได้บ้าง ถ้าต้องการนับแม่นจริงต้องใช้ Durable Object
     if (env.RATE_KV) {
       const key = 'rl:' + (request.headers.get('CF-Connecting-IP') || 'anon');
       const count = Number(await env.RATE_KV.get(key)) || 0;
@@ -71,12 +75,16 @@ export default {
     try {
       const md = await typhoonOcr(body.image, env.TYPHOON_API_KEY, {
         baseUrl: env.TYPHOON_BASE_URL,
-        model: env.TYPHOON_MODEL
+        model: env.TYPHOON_MODEL,
+        // Worker ถูกตัดที่ CPU time ไม่ใช่เวลารอ I/O ถ้า Typhoon ค้างต้องมีตัวตัดเอง
+        signal: AbortSignal.timeout(Number(env.TYPHOON_TIMEOUT_MS || 60000))
       });
       return json({ text: markdownToPlain(md), markdown: md }, 200, origin);
     } catch (err) {
-      const status = err.status === 429 ? 429 : 502;
-      return json({ error: 'เรียก Typhoon ไม่สำเร็จ', detail: String(err.message).slice(0, 200) }, status, origin);
+      const timedOut = err.name === 'TimeoutError' || err.name === 'AbortError';
+      const status = timedOut ? 504 : err.status === 429 ? 429 : 502;
+      const error = timedOut ? 'Typhoon ไม่ตอบกลับภายในเวลาที่กำหนด' : 'เรียก Typhoon ไม่สำเร็จ';
+      return json({ error, detail: String(err.message).slice(0, 200) }, status, origin);
     }
   }
 };

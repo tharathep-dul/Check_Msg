@@ -8,7 +8,7 @@
 npm test
 ```
 
-ถ้าบรรทัด `ผิดข้างแบบอันตราย` มากกว่า 0 แปลว่ามีข้อความสแกมที่ระบบตอบว่าเป็นข้อความปกติ — อย่า commit จนกว่าจะแก้ได้ (`npm test` คืน exit code 1 ให้แล้ว เอาไปต่อ CI ได้ แต่ยังไม่ได้ตั้ง workflow ไว้ในโปรเจกต์)
+ถ้าบรรทัด `ผิดข้างแบบอันตราย` มากกว่า 0 แปลว่ามีข้อความสแกมที่ระบบตอบว่าเป็นข้อความปกติ — อย่า commit จนกว่าจะแก้ได้ `npm test` คืน exit code 1 ในกรณีนี้ และ CI (`.github/workflows/ci.yml`) จะแดงทันที
 
 ## รูปแบบการทำงานที่แนะนำ
 
@@ -47,8 +47,15 @@ npm test
 
 ```bash
 npm test        # ต้องไม่มี hard miss
-node build.js   # ต้อง build standalone ผ่าน
+node build.js   # ต้อง build standalone ผ่าน — และต้อง commit dist/ ที่ได้ไปด้วย
 ```
+
+CI ตรวจ 4 อย่างนี้ทุก push และทุก PR (Node 20 กับ 22)
+
+1. `npm test` ไม่มี hard miss
+2. `node build.js` ผ่าน
+3. `dist/` ตรงกับ `index.html` + `patterns.json` ปัจจุบัน — ลืม build แล้ว commit จะแดง
+4. ไม่มี `.env` ถูก track และไม่มีอะไรที่หน้าตาเหมือน API key ในซอร์ส
 
 ## ห้ามเด็ดขาด
 

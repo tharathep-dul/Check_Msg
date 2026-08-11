@@ -104,7 +104,10 @@ export function markdownToPlain(md) {
     .trim();
 }
 
-/** จำกัดจำนวนครั้งต่อช่วงเวลา — Typhoon จำกัด 2 req/s และ 20 req/min */
+/**
+ * จำกัดจำนวนครั้งต่อช่วงเวลา ทั้ง server รวมกัน — ใช้กันไม่ให้ยิงเกินโควตาที่ Typhoon ให้
+ * (2 req/s, 20 req/min) ไม่ใช่ตัวกันผู้ใช้รายเดียวแย่งโควตาคนอื่น อันนั้นใช้ makeKeyedRateLimiter
+ */
 export function makeRateLimiter({ perSecond = 2, perMinute = 20 } = {}) {
   let sec = [], min = [];
   return function check(now = Date.now()) {
@@ -113,6 +116,33 @@ export function makeRateLimiter({ perSecond = 2, perMinute = 20 } = {}) {
     if (sec.length >= perSecond) return { ok: false, retryAfter: 1 };
     if (min.length >= perMinute) return { ok: false, retryAfter: 60 };
     sec.push(now); min.push(now);
+    return { ok: true };
+  };
+}
+
+/**
+ * จำกัดอัตราแยกตามคีย์ (ใช้ IP) — ตัวจำกัดรวมทั้ง server อย่างเดียวไม่พอ
+ * เพราะคนเดียวยิงรัวก็ทำให้คนอื่นโดน 429 ตามไปด้วยทั้งหมด
+ *
+ * เก็บ timestamp ในหน่วยความจำ ไม่ข้าม process — พอสำหรับ instance เดียว
+ * ถ้าจะขยายหลาย instance ต้องย้ายไป Redis หรือใช้ rate limit ของ reverse proxy แทน
+ */
+export function makeKeyedRateLimiter({ perSecond = 1, perMinute = 10, maxKeys = 5000 } = {}) {
+  const buckets = new Map();
+  return function check(key, now = Date.now()) {
+    if (buckets.size > maxKeys) {
+      for (const [k, b] of buckets) if (now - b.last > 60000) buckets.delete(k);
+      // ยังเต็มอยู่ = โดนยิงด้วย IP ปลอมจำนวนมาก ล้างทิ้งดีกว่าปล่อยให้หน่วยความจำบวม
+      if (buckets.size > maxKeys) buckets.clear();
+    }
+    let b = buckets.get(key);
+    if (!b) { b = { sec: [], min: [], last: now }; buckets.set(key, b); }
+    b.last = now;
+    b.sec = b.sec.filter(t => now - t < 1000);
+    b.min = b.min.filter(t => now - t < 60000);
+    if (b.sec.length >= perSecond) return { ok: false, retryAfter: 1 };
+    if (b.min.length >= perMinute) return { ok: false, retryAfter: 60 };
+    b.sec.push(now); b.min.push(now);
     return { ok: true };
   };
 }

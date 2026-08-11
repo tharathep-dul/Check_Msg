@@ -84,12 +84,16 @@ Content-Type: application/json
 
 | สถานะ | ความหมาย |
 |---|---|
-| 400 | ไม่มีภาพ, รูปแบบไม่ถูกต้อง, หรือภาพใหญ่เกิน |
+| 400 | ไม่มีภาพ หรือรูปแบบไม่ถูกต้อง |
 | 403 | origin ไม่อยู่ใน `ALLOWED_ORIGINS` |
-| 429 | เรียกถี่เกินกำหนด |
+| 413 | ภาพใหญ่เกิน `MAX_IMAGE_MB` |
+| 429 | เรียกถี่เกินกำหนด (ดู `Retry-After` ประกอบ) |
 | 502 | Typhoon ตอบกลับมาผิดพลาด |
+| 504 | Typhoon ไม่ตอบภายใน `TYPHOON_TIMEOUT_MS` |
 
 `GET /health` ใช้เช็คว่าบริการยังทำงาน
+
+ทุกคำตอบมี `Vary: Origin` เพราะ header `Access-Control-Allow-Origin` เปลี่ยนตามผู้เรียก ถ้าไม่มีบรรทัดนี้แล้วมี cache คั่นกลาง คำตอบของ origin หนึ่งจะถูกจ่ายให้อีก origin หนึ่ง
 
 ---
 
@@ -99,11 +103,21 @@ Content-Type: application/json
 |---|---|---|
 | `TYPHOON_API_KEY` | — | **จำเป็น** ไม่มีแล้วจะไม่ยอมสตาร์ท |
 | `ALLOWED_ORIGINS` | `*` | โดเมนที่อนุญาต คั่นด้วยจุลภาค — **อย่าปล่อย `*` บน production** |
-| `RATE_PER_SECOND` | 2 | ตั้งตามที่ Typhoon จำกัด |
-| `RATE_PER_MINUTE` | 20 | ตั้งตามที่ Typhoon จำกัด |
-| `MAX_IMAGE_MB` | 6 | ขนาดภาพสูงสุดที่รับ |
+| `RATE_PER_SECOND` | 2 | เพดานรวมทั้ง server ตั้งตามที่ Typhoon จำกัด |
+| `RATE_PER_MINUTE` | 20 | เพดานรวมทั้ง server ตั้งตามที่ Typhoon จำกัด |
+| `RATE_PER_IP_SECOND` | 1 | เพดานต่อ IP — ตั้งต่ำกว่าเพดานรวมเสมอ |
+| `RATE_PER_IP_MINUTE` | 6 | เพดานต่อ IP |
+| `TRUST_PROXY` | `0` | ตั้ง `1` เมื่อมี reverse proxy อยู่ข้างหน้า จึงจะอ่าน `X-Forwarded-For` |
+| `MAX_IMAGE_MB` | 6 | ขนาดภาพสูงสุด วัดจากขนาดจริงหลังถอด base64 |
+| `TYPHOON_TIMEOUT_MS` | 60000 | รอ Typhoon นานสุดเท่าไร เกินแล้วตอบ 504 |
 | `TYPHOON_BASE_URL` | `https://api.opentyphoon.ai/v1` | เปลี่ยนเมื่อ self-host โมเดลเอง |
 | `TYPHOON_MODEL` | `typhoon-ocr` | Typhoon OCR 1.5 (2B) |
+
+**การจำกัดอัตรามีสองชั้น** เพราะทำหน้าที่คนละอย่าง — ชั้นรวมทั้ง server กันไม่ให้ยิงเกินโควตาที่ Typhoon ให้ ส่วนชั้นต่อ IP กันไม่ให้คนคนเดียวกินโควตาจนคนอื่นใช้ไม่ได้ มีแต่ชั้นรวมอย่างเดียวไม่พอ เพราะคนที่ยิงรัวจะทำให้ทุกคนโดน 429 ตามไปด้วย
+
+ตัวนับเก็บในหน่วยความจำของ process ไม่ข้ามเครื่อง ถ้ารันหลาย instance ต้องพึ่ง rate limit ของ reverse proxy หรือย้ายไป Redis แทน
+
+**`TRUST_PROXY` เปิดเมื่อจำเป็นเท่านั้น** — `X-Forwarded-For` เป็น header ที่ client ปลอมได้ ถ้าเปิดทั้งที่ไม่มี reverse proxy จริง ใครก็สุ่มค่าใหม่ทุกคำขอเพื่อหนีการจำกัดอัตราต่อ IP ได้
 
 ---
 
