@@ -36,14 +36,14 @@
 
 ```
 https://chekmsg.example.com/       →  หน้าเว็บ
-https://chekmsg.example.com/ocr    →  reverse proxy ไป localhost:8787
+https://chekmsg.example.com/ocr/   →  reverse proxy ไป localhost:8787
 ```
 
 ผลที่ตามมา
 
 | | Cloudflare Pages + Worker | VPS โดเมนเดียว |
 |---|---|---|
-| `OCR.proxyUrl` | `https://xxx.workers.dev` | `/ocr` |
+| `OCR.proxyUrl` | `https://xxx.workers.dev` | `/ocr/` |
 | ต้องแก้ `connect-src` ใน CSP | **ต้อง** (ลืมบ่อยที่สุด) | ไม่ต้อง — `'self'` ครอบคลุมแล้ว |
 | CORS preflight | มี ต้องตั้ง `ALLOWED_ORIGINS` ให้ถูก | ไม่มี |
 | API key | ฝากไว้กับ Cloudflare | อยู่ในเครื่องคุณ |
@@ -219,19 +219,26 @@ sudo /var/www/chekmsg/deploy/cloudflare-ufw.sh --revert   # ถ้าต้อ�
 > `https://โดเมนคุณ/ocr-proxy/.env` แล้วอ่าน key ได้ทันที
 > `.gitignore` กันไม่ให้ key เข้า git ได้ แต่กันไม่ให้ web server เสิร์ฟไม่ได้ — คนละชั้นกัน
 >
-> เก็บไว้นอก web root แล้วชี้ด้วย `--env-file` ตามข้างล่างนี้
+> ทางแก้คือ **ย้ายทั้งบริการออกไปนอก web root** ไม่ใช่แค่ย้ายไฟล์ `.env`
+> เพราะถ้าย้ายแค่ `.env` ต้องใส่ `--env-file` ทุกคำสั่งของ compose
+> (แม้แต่ `logs` และ `ps` ก็พังถ้าลืม) ซึ่งจะลืมแน่นอนสักวัน
+
+**ย้าย `ocr-proxy` ไป `/opt` ทั้งโฟลเดอร์** — ไม่มีอะไรลับอยู่ใต้ `/var/www` อีกเลย
+และคำสั่ง `docker compose` ทุกคำสั่งใช้ได้ตามปกติโดยไม่ต้องจำ flag อะไรเพิ่ม
 
 ```bash
 curl -fsSL https://get.docker.com | sudo sh
 
-# เก็บ key ไว้นอก web root แล้วปิดสิทธิ์ให้เหลือแต่ root
-sudo mkdir -p /etc/chekmsg
-sudo cp /var/www/chekmsg/ocr-proxy/.env.example /etc/chekmsg/ocr-proxy.env
-sudo chmod 600 /etc/chekmsg/ocr-proxy.env
-sudo nano /etc/chekmsg/ocr-proxy.env
+sudo mkdir -p /opt/chekmsg-ocr
+sudo cp -r /var/www/chekmsg/ocr-proxy/. /opt/chekmsg-ocr/
+
+cd /opt/chekmsg-ocr
+sudo cp .env.example .env
+sudo chmod 600 .env
+sudo nano .env
 ```
 
-`/etc/chekmsg/ocr-proxy.env` — **สองบรรทัดนี้สำคัญเป็นพิเศษเมื่ออยู่หลัง reverse proxy**
+`.env` — **สองบรรทัดนี้สำคัญเป็นพิเศษเมื่ออยู่หลัง reverse proxy**
 
 ```bash
 TYPHOON_API_KEY=<key ของคุณ>
@@ -246,13 +253,10 @@ TRUST_PROXY=1
 แล้วคนนอกยิงตรงข้าม reverse proxy ได้ ซึ่งข้าม `ALLOWED_ORIGINS` กับการจำกัดอัตราต่อ IP ไปพร้อมกัน
 
 ```bash
-cd /var/www/chekmsg/ocr-proxy
-sudo docker compose --env-file /etc/chekmsg/ocr-proxy.env up -d
+cd /opt/chekmsg-ocr
+sudo docker compose up -d
 curl -s localhost:8787/health      # {"ok":true}
 ```
-
-`--env-file` ต้องใส่ทุกครั้งที่สั่ง `docker compose` กับบริการนี้ รวมถึงตอน `restart` และ `pull`
-ลืมใส่แล้ว compose จะหา `TYPHOON_API_KEY` ไม่เจอแล้วหยุดพร้อมข้อความบอกเอง — ไม่ขึ้นแบบไม่มี key
 
 จากนั้นแก้ `index.html` บรรทัดเดียว
 
@@ -261,8 +265,17 @@ proxyUrl: '/ocr/',   // same-origin — connect-src 'self' ครอบคลุ
 ```
 
 **ต้องมี `/` ปิดท้าย** — `location /ocr/` ของ nginx เป็น prefix ที่ต้องการ slash
-ถ้าใส่ `/ocr` เฉย ๆ nginx จะตอบ 301 เพื่อเติม slash ให้ ซึ่ง**ทำให้ POST กลายเป็น GET และ body หายไป**
-แล้วการอัปโหลดภาพจะพังแบบหาสาเหตุยาก (Caddy ไม่เป็น แต่ใส่ slash ให้เหมือนกันไว้ดีกว่า)
+ถ้าใส่ `/ocr` เฉย ๆ จะไม่เข้า location นั้น `deploy/nginx.conf` จึงดักไว้ด้วย 308
+ซึ่งคงเมธอดและ body ไว้ครบ (ถ้าปล่อยให้ nginx เติม slash เองจะได้ 301 ซึ่ง**เปลี่ยน POST เป็น GET แล้ว body หายทั้งก้อน** — อัปโหลดภาพจะพังแบบหาสาเหตุยากมาก)
+ใส่ slash ให้ถูกตั้งแต่แรกดีกว่าพึ่ง 308
+
+> **เวลาอัปเดตโค้ดของ `ocr-proxy`** — `git pull` ที่ `/var/www/chekmsg` ไม่แตะ `/opt/chekmsg-ocr`
+> ต้องคัดลอกทับแล้ว build ใหม่ (`.env` ไม่ถูกทับเพราะไม่มีในรีโป)
+>
+> ```bash
+> sudo cp -r /var/www/chekmsg/ocr-proxy/. /opt/chekmsg-ocr/
+> cd /opt/chekmsg-ocr && sudo docker compose up -d --build
+> ```
 
 ---
 
@@ -287,8 +300,11 @@ curl -sI $SITE/patterns.json | grep -iE 'cache-control|content-security|cf-cache
 curl -sI -H 'Accept-Encoding: gzip' $SITE/engine.js | grep -i content-encoding
 
 # ไฟล์ที่ต้องถูกบล็อก — ต้องได้ 404 ทุกอัน
-for p in /admin.html /tests/testset.json /docs/guide.md /deploy/nginx.conf /package.json /.git/config; do
-  printf "%-24s %s\n" "$p" "$(curl -s -o /dev/null -w '%{http_code}' $SITE$p)"
+# /ocr-proxy/.env สำคัญที่สุดในรายการนี้ ถ้าได้ 200 แปลว่า API key เปิดให้ทุกคนอ่าน
+# ต้องเปลี่ยน key ทันที ย้ายไฟล์อย่างเดียวไม่พอ
+for p in /ocr-proxy/.env /ocr-proxy/server.js /admin.html /tests/testset.json \
+         /docs/guide.md /deploy/nginx.conf /package.json /.git/config /CLAUDE.md; do
+  printf "%-26s %s\n" "$p" "$(curl -s -o /dev/null -w '%{http_code}' $SITE$p)"
 done
 
 # ต่อตรงเข้า VPS ต้องไม่ได้ (timeout หรือ refused)
@@ -373,7 +389,7 @@ sudo dpkg-reconfigure -plow unattended-upgrades
 |---|---|
 | `sudo apt update && sudo apt upgrade` | อัตโนมัติผ่าน unattended-upgrades |
 | รัน `deploy/cloudflare-ufw.sh` ใหม่ | ทุก 2-3 เดือน (ช่วง IP ของ Cloudflare เปลี่ยน) |
-| `docker compose pull && docker compose up -d` ใน `ocr-proxy/` | เมื่อมี Node image ใหม่ |
+| `cd /opt/chekmsg-ocr && docker compose pull && docker compose up -d` | เมื่อมี Node image ใหม่ |
 | ตรวจ `sudo ufw status` และ `docker compose logs --tail 50` | เดือนละครั้ง |
 | Origin Certificate | **ไม่ต้องทำอะไร 15 ปี** |
 
@@ -388,7 +404,7 @@ sudo dpkg-reconfigure -plow unattended-upgrades
 | เว็บเข้าไม่ได้เลยหลังรัน `cloudflare-ufw.sh` | proxy ใน Cloudflare เป็นเมฆสีเทา — เปลี่ยนเป็นส้ม หรือรัน `--revert` |
 | Error 521 (Web server is down) | web server ไม่ทำงาน หรือ firewall บล็อก Cloudflare — `sudo systemctl status caddy` และ `sudo ufw status` |
 | Error 526 (Invalid SSL certificate) | SSL/TLS mode เป็น Full (strict) แต่ Origin Certificate ยังไม่ได้ติดตั้ง หรือ path ผิด |
-| Error 502 ที่ `/ocr/health` | container ไม่ทำงาน — `cd ocr-proxy && docker compose logs --tail 50` |
+| Error 502 ที่ `/ocr/health` | container ไม่ทำงาน — `cd /opt/chekmsg-ocr && docker compose logs --tail 50` |
 | แก้ pattern แล้วผู้ใช้ยังเห็นของเก่า | ยังไม่ได้ตั้ง Cache Rule ตามข้อ 3.5 — หรือ purge ที่ Cloudflare |
 | OCR ขึ้น 429 ทั้งที่มีคนใช้คนเดียว | ลืม `TRUST_PROXY=1` ทุกคำขอเลยดูเหมือนมาจาก IP เดียว |
 | Console ขึ้น CSP violation | มีปลายทางใหม่ที่ยังไม่ได้ใส่ใน `connect-src` |
@@ -399,7 +415,7 @@ sudo dpkg-reconfigure -plow unattended-upgrades
 ```bash
 sudo journalctl -u caddy -n 50 --no-pager        # หรือ
 sudo tail -50 /var/log/nginx/error.log
-cd /var/www/chekmsg/ocr-proxy && docker compose logs --tail 50
+cd /opt/chekmsg-ocr && docker compose logs --tail 50
 ```
 
 ---
@@ -413,7 +429,7 @@ cd /var/www/chekmsg/ocr-proxy && docker compose logs --tail 50
 4. Cache Rule bypass 4 ไฟล์                         → ข้อ 3.5  ← อย่าข้าม
 5. ติดตั้ง Caddy หรือ nginx + คัดลอก config          → ข้อ 4
 6. รัน cloudflare-ufw.sh                            → ข้อ 5    ← อย่าข้าม
-7. (ถ้าใช้ OCR) docker compose up + TRUST_PROXY=1   → ข้อ 6
+7. (ถ้าใช้ OCR) ย้ายไป /opt + docker compose up      → ข้อ 6
 8. รันชุดคำสั่งตรวจสอบทั้งหมด                        → ข้อ 7
 ```
 
