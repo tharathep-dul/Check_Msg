@@ -91,7 +91,7 @@ export function validateGenerated(result, seeds) {
  * บัญชีที่ไม่มีสิทธิ์รุ่นนี้จะได้ 403 ทุกสัปดาห์จนกว่าจะมีคนแก้โค้ด
  * จึงให้ทับค่าได้จาก env หรือ CLI โดยไม่ต้อง commit
  */
-export const DEFAULT_MODEL = 'gpt-5.2';
+export const DEFAULT_MODEL = 'gpt-5-mini';
 
 /** ลำดับความสำคัญ: ธงบรรทัดคำสั่ง > ตัวแปรสภาพแวดล้อม > ค่าตั้งต้น */
 export function resolveModel(cliArg, envValue) {
