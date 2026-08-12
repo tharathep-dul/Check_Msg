@@ -546,12 +546,22 @@ mkdir -p ~/apps/chekmsg && cd ~/apps/chekmsg
 git clone https://github.com/tharathep-dul/Check_Msg.git site
 cp site/deploy/tunnel/docker-compose.yml site/deploy/tunnel/chekmsg.conf .
 
-printf 'TUNNEL_TOKEN=<token ที่คัดลอกมา>\n' > .env
+umask 077
+nano .env          # พิมพ์บรรทัดเดียว: TUNNEL_TOKEN=eyJhIjoi...
 chmod 600 .env
+ls -l .env         # ต้องเป็น -rw-------
 
 docker compose up -d
 docker compose ps          # ต้องขึ้น running ทั้งสองตัว
+docker logs chekmsg-tunnel --tail 20   # ควรเห็น "Registered tunnel connection"
 ```
+
+> **ใช้ editor พิมพ์ token อย่าใช้ `printf` หรือ `echo`** — คำสั่งที่พิมพ์ในเทอร์มินัลถูกบันทึกลง
+> `~/.bash_history` token จะค้างอยู่ในไฟล์นั้นถาวร ส่วนสิ่งที่พิมพ์ใน editor ไม่ถูกบันทึก
+>
+> **และอย่ารันคำสั่ง `docker run ...` ที่หน้า Cloudflare ให้มา** — คำสั่งนั้นได้ container ที่ไม่มี
+> `restart: unless-stopped` (รีบูตแล้วไม่ขึ้นเอง) ไม่ได้อยู่ network เดียวกับ `chekmsg-web`
+> (เลยเรียกไม่ถึง) และ token ติดอยู่ใน history — `docker-compose.yml` ทำสิ่งเดียวกันแต่ครบทั้งสามข้อ
 
 **3. ชี้ปลายทางใน Cloudflare** — ในหน้า tunnel เดิม → **Public Hostname** → Add
 
