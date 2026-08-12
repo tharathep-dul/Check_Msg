@@ -3,12 +3,30 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { buildPrompt, validateGenerated, CASE_SCHEMA } from './generate-cases.mjs';
+import { buildPrompt, validateGenerated, CASE_SCHEMA, resolveModel, DEFAULT_MODEL } from './generate-cases.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
 const seedsFile = JSON.parse(await readFile(join(ROOT, 'tests/fixtures/scam-seeds.json'), 'utf8'));
 const sample = JSON.parse(await readFile(join(ROOT, 'tests/fixtures/generated-sample.json'), 'utf8'));
 const seeds = seedsFile.seeds;
+
+test('resolveModel ใช้ค่าตั้งต้นเมื่อไม่ได้ระบุอะไรเลย', () => {
+  assert.equal(resolveModel(undefined, undefined), DEFAULT_MODEL);
+});
+
+test('resolveModel มองข้ามค่าว่างจาก env ที่ workflow ส่งมา', () => {
+  // GitHub Actions ส่ง env เป็นสตริงว่างเสมอเมื่อผู้ใช้ไม่ได้กรอกช่อง model
+  assert.equal(resolveModel(undefined, ''), DEFAULT_MODEL);
+  assert.equal(resolveModel(undefined, '   '), DEFAULT_MODEL);
+});
+
+test('resolveModel ใช้ค่าจาก env เมื่อไม่มีธงบรรทัดคำสั่ง', () => {
+  assert.equal(resolveModel(undefined, 'gpt-5.1'), 'gpt-5.1');
+});
+
+test('resolveModel ให้ธงบรรทัดคำสั่งชนะ env', () => {
+  assert.equal(resolveModel('gpt-4.1', 'gpt-5.1'), 'gpt-4.1');
+});
 
 test('buildPrompt ใส่ข้อความของทุก seed ลงไป', () => {
   const prompt = buildPrompt(seeds, 50);

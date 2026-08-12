@@ -5,6 +5,7 @@
  *   node tools/watch-decay.mjs --dry-run       ใช้ผลลัพธ์ตัวอย่าง ไม่เรียก API
  *   node tools/watch-decay.mjs --count 50      เรียก API จริง ต้องมี OPENAI_API_KEY
  *   node tools/watch-decay.mjs --no-write      รันแต่ไม่บันทึกลง decay.jsonl
+ *   node tools/watch-decay.mjs --model gpt-5.1 เลือกรุ่น (หรือตั้ง env OPENAI_MODEL)
  *
  * สคริปต์นี้เขียนได้แค่ tests/history/decay.jsonl เท่านั้น
  * ไม่แตะ patterns.json และไม่แตะ tests/testset.json ตามข้อจำกัดในเอกสารออกแบบ
@@ -16,7 +17,7 @@ import { dirname, join } from 'node:path';
 import { createEngine } from '../engine.js';
 import { readHistory, appendEntry, assessTrend } from './lib/decay-store.mjs';
 import { scoreScamCases, scoreControlSuite } from './lib/case-runner.mjs';
-import { generateCases, validateGenerated } from './lib/generate-cases.mjs';
+import { generateCases, validateGenerated, resolveModel } from './lib/generate-cases.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const HISTORY_PATH = join(ROOT, 'tests/history/decay.jsonl');
@@ -35,7 +36,7 @@ const engine = createEngine(patterns);
 
 const dryRun = has('--dry-run');
 const count = Number(arg('--count', 50));
-const model = arg('--model', 'gpt-5.2');
+const model = resolveModel(arg('--model'), process.env.OPENAI_MODEL);
 
 /* ---------- สร้างเคส ---------- */
 let generated;
@@ -50,6 +51,7 @@ if (dryRun) {
     process.exit(1);
   }
   try {
+    console.log(`ใช้รุ่น ${model}`);
     generated = await generateCases({ seeds: seedsFile.seeds, count, apiKey, model });
     console.log(`สร้างเคสได้ ${generated.cases.length} เคส (ขอไป ${count})`);
   } catch (err) {

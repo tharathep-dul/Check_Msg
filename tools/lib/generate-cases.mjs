@@ -85,6 +85,21 @@ export function validateGenerated(result, seeds) {
 }
 
 /**
+ * รุ่นที่ใช้เมื่อไม่ได้ระบุอะไรเลย
+ *
+ * ห้าม hardcode ชื่อรุ่นไว้ที่เดียวแล้วจบ เพราะสิทธิ์เข้าถึงรุ่นต่างกันไปตามบัญชี
+ * บัญชีที่ไม่มีสิทธิ์รุ่นนี้จะได้ 403 ทุกสัปดาห์จนกว่าจะมีคนแก้โค้ด
+ * จึงให้ทับค่าได้จาก env หรือ CLI โดยไม่ต้อง commit
+ */
+export const DEFAULT_MODEL = 'gpt-5.2';
+
+/** ลำดับความสำคัญ: ธงบรรทัดคำสั่ง > ตัวแปรสภาพแวดล้อม > ค่าตั้งต้น */
+export function resolveModel(cliArg, envValue) {
+  const pick = [cliArg, envValue].find(v => typeof v === 'string' && v.trim());
+  return pick ? pick.trim() : DEFAULT_MODEL;
+}
+
+/**
  * เรียก API จริง — ส่วนเดียวในไฟล์นี้ที่มี I/O
  *
  * แยกไว้ท้ายไฟล์เพื่อให้เปลี่ยนผู้ให้บริการได้โดยไม่แตะส่วนอื่น
@@ -93,20 +108,30 @@ export function validateGenerated(result, seeds) {
  *
  * โยน error เมื่อถูกปฏิเสธหรือ API ล่ม ให้ผู้เรียกตัดสินใจว่าจะทำยังไงต่อ
  */
-export async function generateCases({ seeds, count, apiKey, model = 'gpt-5.2' }) {
+export async function generateCases({ seeds, count, apiKey, model = DEFAULT_MODEL }) {
   const { default: OpenAI } = await import('openai');
   const client = new OpenAI({ apiKey });
 
-  const completion = await client.chat.completions.create({
-    model,
-    // รุ่นใหม่เลิกรับ max_tokens แล้ว ต้องใช้ max_completion_tokens
-    max_completion_tokens: 16000,
-    response_format: {
-      type: 'json_schema',
-      json_schema: { name: 'generated_cases', schema: CASE_SCHEMA, strict: true }
-    },
-    messages: [{ role: 'user', content: buildPrompt(seeds, count) }]
-  });
+  let completion;
+  try {
+    completion = await client.chat.completions.create({
+      model,
+      // รุ่นใหม่เลิกรับ max_tokens แล้ว ต้องใช้ max_completion_tokens
+      max_completion_tokens: 16000,
+      response_format: {
+        type: 'json_schema',
+        json_schema: { name: 'generated_cases', schema: CASE_SCHEMA, strict: true }
+      },
+      messages: [{ role: 'user', content: buildPrompt(seeds, count) }]
+    });
+  } catch (err) {
+    // 403 ที่นี่แปลว่าบัญชีไม่มีสิทธิ์รุ่นนี้ ไม่ใช่ key ผิด — เป็นคนละเรื่องกับ 401
+    // ถ้าไม่บอกทางแก้ตรงนี้ คนอ่าน log จะไปไล่หา key ที่ไม่ได้พัง
+    if (err?.status === 403) {
+      throw new Error(`${err.message}\n  → บัญชีไม่มีสิทธิ์รุ่น "${model}" สลับรุ่นด้วย --model หรือตั้ง OPENAI_MODEL`);
+    }
+    throw err;
+  }
 
   const message = completion.choices?.[0]?.message;
 

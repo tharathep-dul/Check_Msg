@@ -10,6 +10,10 @@ on:
         description: 'จำนวนเคสที่จะสร้าง'
         required: false
         default: '50'
+      model:
+        description: 'รุ่นที่จะใช้ (เว้นว่างไว้เพื่อใช้ค่าจากตัวแปร OPENAI_MODEL ของ repo)'
+        required: false
+        default: ''
 
 permissions:
   contents: write        # เพื่อ commit decay.jsonl กลับเข้า repo
@@ -47,6 +51,9 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           COUNT: ${{ inputs.count || '50' }}
+          # สคริปต์อ่านค่านี้เอง ไม่ได้แทรกลงบรรทัดคำสั่ง จึงไม่ต้องกรองแบบ COUNT
+          # ตั้ง vars.OPENAI_MODEL ไว้ที่ repo เพื่อให้รอบ cron ใช้รุ่นเดียวกับที่ทดสอบไว้
+          OPENAI_MODEL: ${{ inputs.model || vars.OPENAI_MODEL || '' }}
         run: |
           case "$COUNT" in
             ''|*[!0-9]*) echo "✗ count ต้องเป็นตัวเลขล้วน ได้มา: $COUNT"; exit 1 ;;
