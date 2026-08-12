@@ -1,0 +1,108 @@
+name: decay-watch
+
+on:
+  schedule:
+    # ทุกวันจันทร์ 02:00 UTC = 09:00 ตามเวลาไทย
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+    inputs:
+      count:
+        description: 'จำนวนเคสที่จะสร้าง'
+        required: false
+        default: '50'
+
+permissions:
+  contents: write        # เพื่อ commit decay.jsonl กลับเข้า repo
+  issues: write          # เพื่อเปิด issue เมื่อพบการเสื่อม
+
+# กันไม่ให้รันซ้อนกันจนแย่งกัน push บรรทัดเดียวกัน
+concurrency:
+  group: decay-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      # workflow นี้เป็นที่เดียวที่ติดตั้ง dependency
+      # ci.yml ยังไม่มีขั้นตอนนี้ และ runtime ที่ผู้ใช้โหลดยังมี dependency เป็นศูนย์
+      # ใช้ npm ci ไม่ใช่ npm install เพื่อให้ได้เวอร์ชันเดียวกันทุกสัปดาห์ตาม package-lock.json
+      - name: ติดตั้ง dependency
+        run: npm ci
+
+      # ถ้าสร้างเคสไม่สำเร็จ สคริปต์ออกด้วย exit 2 โดยไม่บันทึกอะไร
+      # ปล่อยให้ step นี้แดง เพราะระบบเฝ้าระวังที่ล้มเงียบ ๆ คือสิ่งที่โปรเจกต์นี้สร้างมาเพื่อป้องกัน
+      #
+      # ค่าจาก inputs ต้องผ่าน env และใส่เครื่องหมายคำพูดเสมอ ห้ามแทรกลงบรรทัดคำสั่งตรง ๆ
+      # ไม่งั้นค่าที่ใส่มาจะกลายเป็นคำสั่ง shell ได้
+      - name: เฝ้าระวังการเสื่อม
+        id: watch
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          COUNT: ${{ inputs.count || '50' }}
+        run: |
+          case "$COUNT" in
+            ''|*[!0-9]*) echo "✗ count ต้องเป็นตัวเลขล้วน ได้มา: $COUNT"; exit 1 ;;
+          esac
+          npm run watch:decay -- --count "$COUNT"
+
+      - name: บันทึกผลกลับเข้า repo
+        run: |
+          if ! git status --porcelain tests/history/decay.jsonl | grep -q .; then
+            echo "ไม่มีอะไรเปลี่ยน"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/history/decay.jsonl
+          git commit -m "chore(watch): บันทึกผลเฝ้าระวัง $(date -u +%Y-%m-%d)"
+          # rebase ก่อน push เผื่อมีคน push ระหว่างที่ workflow กำลังรัน
+          git pull --rebase --autostash origin main
+          git push
+
+      - name: เปิด issue เมื่อพบการเสื่อม
+        if: steps.watch.outputs.status == 'decay' || steps.watch.outputs.status == 'engine-regression'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATUS: ${{ steps.watch.outputs.status }}
+          GEN: ${{ steps.watch.outputs.generated_recall }}
+          CTL: ${{ steps.watch.outputs.control_recall }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # สร้าง label ถ้ายังไม่มี — ไม่งั้น gh issue create จะล้มเพราะหา label ไม่เจอ
+          gh label create decay-watch \
+            --description "ผลจากระบบเฝ้าระวังการเสื่อม" --color FBCA04 2>/dev/null || true
+
+          # ใช้ printf แทน heredoc เพราะตัวปิด heredoc ต้องอยู่ต้นบรรทัดเสมอ
+          # ซึ่งขัดกับการย่อหน้าใน YAML และจะทำให้สคริปต์พังแบบหาสาเหตุยาก
+          if [ "$STATUS" = "decay" ]; then
+            TITLE="เฝ้าระวัง: ความแม่นยำเริ่มเสื่อม (recall เคสใหม่ ${GEN}%)"
+            BODY=$(printf '%s\n' \
+              "ชุดควบคุมยังนิ่งที่ ${CTL}% แต่เคสที่สร้างใหม่ตกติดกันหลายรอบ เหลือ ${GEN}%" \
+              "" \
+              "แปลว่าคนร้ายน่าจะใช้คำที่คลังคำยังไม่รู้จัก" \
+              "" \
+              "- ดูเคสที่หลุดใน [log ของรอบนี้](${RUN_URL})" \
+              "- ดูแนวโน้มย้อนหลังที่ \`tests/history/decay.jsonl\`" \
+              "" \
+              "**สิ่งที่ควรทำต่อ** — เอาเคสที่หลุดเพิ่มเข้าชุดทดสอบก่อน แล้วค่อยแก้ pattern ตามกฎ R1" \
+              "ห้ามเพิ่มคำโดยไม่มีเคสที่แดงรองรับ")
+          else
+            TITLE="เฝ้าระวัง: คะแนนตกทั้งสองชุด — น่าจะมีคนแก้ engine จนพัง"
+            BODY=$(printf '%s\n' \
+              "ทั้งเคสที่สร้างใหม่ (${GEN}%) และชุดควบคุม (${CTL}%) ตกพร้อมกัน" \
+              "" \
+              "กรณีนี้มักไม่ใช่การเสื่อมจากคนร้าย แต่เป็นการแก้ engine หรือ pattern ที่ทำของเดิมพัง" \
+              "" \
+              "- ตรวจ commit ล่าสุดที่แตะ \`engine.js\` หรือ \`patterns.json\`" \
+              "- ดู [log ของรอบนี้](${RUN_URL})")
+          fi
+
+          gh issue create --title "$TITLE" --body "$BODY" --label "decay-watch"

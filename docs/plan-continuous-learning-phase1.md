@@ -1057,7 +1057,17 @@ git commit -m "feat(watch): CLI เฝ้าระวังการเสื่
 - Consumes: `npm run watch:decay`, secret `OPENAI_API_KEY`
 - Produces: commit ที่เพิ่มบรรทัดใน `tests/history/decay.jsonl` และ issue เมื่อพบการเสื่อม
 
-- [ ] **Step 1: เขียน workflow**
+> **แก้จากแผนเดิมตอนลงมือจริง — สองข้อ**
+>
+> 1. **heredoc ปิดไม่ได้ใน YAML** — ตัวปิด `EOF` ต้องอยู่ต้นบรรทัดเสมอ ซึ่งขัดกับการย่อหน้า
+>    ของ YAML ถ้าใช้ตามแผนเดิม สคริปต์จะพังแบบหาสาเหตุยาก เปลี่ยนไปใช้ `printf '%s\n'` แทน
+> 2. **`inputs.count` แทรกลงบรรทัดคำสั่งตรง ๆ ไม่ได้** — ค่าที่ใส่มาจะกลายเป็นคำสั่ง shell ได้
+>    ย้ายไปผ่าน `env:` ใส่เครื่องหมายคำพูด และเพิ่มด่านตรวจว่าเป็นตัวเลขล้วน
+>
+> และเปลี่ยน `npm install --no-save` เป็น `npm ci` เพราะตอนนี้มี `package-lock.json` แล้ว
+> จึงได้เวอร์ชันเดียวกันทุกสัปดาห์
+
+- [x] **Step 1: เขียน workflow**
 
 สร้าง `.github/workflows/decay-watch.yml`
 
@@ -1079,6 +1089,11 @@ permissions:
   contents: write        # เพื่อ commit decay.jsonl กลับเข้า repo
   issues: write          # เพื่อเปิด issue เมื่อพบการเสื่อม
 
+# กันไม่ให้รันซ้อนกันจนแย่งกัน push บรรทัดเดียวกัน
+concurrency:
+  group: decay-watch
+  cancel-in-progress: false
+
 jobs:
   watch:
     runs-on: ubuntu-latest
@@ -1092,18 +1107,29 @@ jobs:
 
       # workflow นี้เป็นที่เดียวที่ติดตั้ง dependency
       # ci.yml ยังไม่มีขั้นตอนนี้ และ runtime ที่ผู้ใช้โหลดยังมี dependency เป็นศูนย์
-      - name: ติดตั้ง SDK
+      # ใช้ npm ci ไม่ใช่ npm install เพื่อให้ได้เวอร์ชันเดียวกันทุกสัปดาห์ตาม package-lock.json
+      - name: ติดตั้ง dependency
         run: npm ci
 
+      # ถ้าสร้างเคสไม่สำเร็จ สคริปต์ออกด้วย exit 2 โดยไม่บันทึกอะไร
+      # ปล่อยให้ step นี้แดง เพราะระบบเฝ้าระวังที่ล้มเงียบ ๆ คือสิ่งที่โปรเจกต์นี้สร้างมาเพื่อป้องกัน
+      #
+      # ค่าจาก inputs ต้องผ่าน env และใส่เครื่องหมายคำพูดเสมอ ห้ามแทรกลงบรรทัดคำสั่งตรง ๆ
+      # ไม่งั้นค่าที่ใส่มาจะกลายเป็นคำสั่ง shell ได้
       - name: เฝ้าระวังการเสื่อม
         id: watch
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: npm run watch:decay -- --count ${{ inputs.count || '50' }}
+          COUNT: ${{ inputs.count || '50' }}
+        run: |
+          case "$COUNT" in
+            ''|*[!0-9]*) echo "✗ count ต้องเป็นตัวเลขล้วน ได้มา: $COUNT"; exit 1 ;;
+          esac
+          npm run watch:decay -- --count "$COUNT"
 
       - name: บันทึกผลกลับเข้า repo
         run: |
-          if git diff --quiet tests/history/decay.jsonl; then
+          if ! git status --porcelain tests/history/decay.jsonl | grep -q .; then
             echo "ไม่มีอะไรเปลี่ยน"
             exit 0
           fi
@@ -1111,6 +1137,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add tests/history/decay.jsonl
           git commit -m "chore(watch): บันทึกผลเฝ้าระวัง $(date -u +%Y-%m-%d)"
+          # rebase ก่อน push เผื่อมีคน push ระหว่างที่ workflow กำลังรัน
+          git pull --rebase --autostash origin main
           git push
 
       - name: เปิด issue เมื่อพบการเสื่อม
@@ -1120,33 +1148,48 @@ jobs:
           STATUS: ${{ steps.watch.outputs.status }}
           GEN: ${{ steps.watch.outputs.generated_recall }}
           CTL: ${{ steps.watch.outputs.control_recall }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          # สร้าง label ถ้ายังไม่มี — ไม่งั้น gh issue create จะล้มเพราะหา label ไม่เจอ
+          gh label create decay-watch \
+            --description "ผลจากระบบเฝ้าระวังการเสื่อม" --color FBCA04 2>/dev/null || true
+
+          # ใช้ printf แทน heredoc เพราะตัวปิด heredoc ต้องอยู่ต้นบรรทัดเสมอ
+          # ซึ่งขัดกับการย่อหน้าใน YAML และจะทำให้สคริปต์พังแบบหาสาเหตุยาก
           if [ "$STATUS" = "decay" ]; then
             TITLE="เฝ้าระวัง: ความแม่นยำเริ่มเสื่อม (recall เคสใหม่ ${GEN}%)"
-            BODY="ชุดควบคุมยังนิ่งที่ ${CTL}% แต่เคสที่สร้างใหม่ตกติดกันหลายรอบ เหลือ ${GEN}%
-
-          แปลว่าคนร้ายน่าจะใช้คำที่คลังคำยังไม่รู้จัก ดูรายละเอียดใน log ของ workflow
-          และดูแนวโน้มย้อนหลังที่ \`tests/history/decay.jsonl\`
-
-          สิ่งที่ควรทำต่อ: ดูเคสที่หลุดใน log แล้วเพิ่มเข้าชุดทดสอบก่อน ตามกฎ R1"
+            BODY=$(printf '%s\n' \
+              "ชุดควบคุมยังนิ่งที่ ${CTL}% แต่เคสที่สร้างใหม่ตกติดกันหลายรอบ เหลือ ${GEN}%" \
+              "" \
+              "แปลว่าคนร้ายน่าจะใช้คำที่คลังคำยังไม่รู้จัก" \
+              "" \
+              "- ดูเคสที่หลุดใน [log ของรอบนี้](${RUN_URL})" \
+              "- ดูแนวโน้มย้อนหลังที่ \`tests/history/decay.jsonl\`" \
+              "" \
+              "**สิ่งที่ควรทำต่อ** — เอาเคสที่หลุดเพิ่มเข้าชุดทดสอบก่อน แล้วค่อยแก้ pattern ตามกฎ R1" \
+              "ห้ามเพิ่มคำโดยไม่มีเคสที่แดงรองรับ")
           else
             TITLE="เฝ้าระวัง: คะแนนตกทั้งสองชุด — น่าจะมีคนแก้ engine จนพัง"
-            BODY="ทั้งเคสที่สร้างใหม่ (${GEN}%) และชุดควบคุม (${CTL}%) ตกพร้อมกัน
-
-          กรณีนี้มักไม่ใช่การเสื่อมจากคนร้าย แต่เป็นการแก้ engine หรือ pattern ที่ทำของเดิมพัง
-          ตรวจ commit ล่าสุดที่แตะ \`engine.js\` หรือ \`patterns.json\`"
+            BODY=$(printf '%s\n' \
+              "ทั้งเคสที่สร้างใหม่ (${GEN}%) และชุดควบคุม (${CTL}%) ตกพร้อมกัน" \
+              "" \
+              "กรณีนี้มักไม่ใช่การเสื่อมจากคนร้าย แต่เป็นการแก้ engine หรือ pattern ที่ทำของเดิมพัง" \
+              "" \
+              "- ตรวจ commit ล่าสุดที่แตะ \`engine.js\` หรือ \`patterns.json\`" \
+              "- ดู [log ของรอบนี้](${RUN_URL})")
           fi
+
           gh issue create --title "$TITLE" --body "$BODY" --label "decay-watch"
 ```
 
-- [ ] **Step 2: ตรวจ YAML ว่าไม่มี tab และ parse ได้**
+- [x] **Step 2: ตรวจ YAML ว่าไม่มี tab และ parse ได้**
 
 ```bash
 grep -P '\t' .github/workflows/decay-watch.yml && echo "✗ มี tab" || echo "✓ ไม่มี tab"
 node -e "const s=require('fs').readFileSync('.github/workflows/decay-watch.yml','utf8'); if(/\t/.test(s)) throw new Error('tab'); console.log('✓ อ่านได้', s.split('\n').length, 'บรรทัด')"
 ```
 
-- [ ] **Step 3: ตรวจว่า ci.yml ยังไม่มี npm install**
+- [x] **Step 3: ตรวจว่า ci.yml ยังไม่มี npm install**
 
 ```bash
 grep -c "npm install\|npm ci" .github/workflows/ci.yml || echo "✓ ci.yml ยังไม่มีขั้นตอนติดตั้ง"
@@ -1154,7 +1197,7 @@ grep -c "npm install\|npm ci" .github/workflows/ci.yml || echo "✓ ci.yml ย�
 
 คาดหวัง: `✓ ci.yml ยังไม่มีขั้นตอนติดตั้ง`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add .github/workflows/decay-watch.yml
