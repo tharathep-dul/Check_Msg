@@ -24,7 +24,10 @@ services:
     networks:
       - chekmsg-net
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost/ >/dev/null || exit 1"]
+      # ต้องใช้ 127.0.0.1 ไม่ใช่ localhost — ใน container ชื่อ localhost แปลเป็น ::1 (IPv6)
+      # แต่ `listen 80;` ของ nginx ผูกแค่ 0.0.0.0:80 (IPv4) healthcheck จึงล้มทุกครั้ง
+      # ทั้งที่เว็บทำงานปกติ กลายเป็นสัญญาณเตือนปลอมที่ทำให้ unhealthy ไม่มีความหมาย
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
