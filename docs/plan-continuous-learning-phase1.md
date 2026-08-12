@@ -412,7 +412,7 @@ engine จนพัง และเตือนเฉพาะเมื่อต
   - `scoreScamCases(engine, cases) → { n, caught, recall, missed }` — ใช้กับเคสที่คาดว่าเป็นสแกมทั้งหมด
   - `scoreControlSuite(engine, testset) → { n, correct, recall, hard }`
 
-- [ ] **Step 1: เขียนเทสต์ที่ยังล้ม**
+- [x] **Step 1: เขียนเทสต์ที่ยังล้ม**
 
 สร้าง `tools/lib/case-runner.test.mjs`
 
@@ -464,7 +464,7 @@ test('scoreControlSuite ให้ตัวเลขตรงกับ npm test',
 });
 ```
 
-- [ ] **Step 2: รันแล้วต้องล้ม**
+- [x] **Step 2: รันแล้วต้องล้ม**
 
 ```bash
 node --test tools/lib/case-runner.test.mjs
@@ -472,7 +472,7 @@ node --test tools/lib/case-runner.test.mjs
 
 คาดหวัง: `Cannot find module './case-runner.mjs'`
 
-- [ ] **Step 3: เขียนโค้ดให้ผ่าน**
+- [x] **Step 3: เขียนโค้ดให้ผ่าน**
 
 สร้าง `tools/lib/case-runner.mjs`
 
@@ -521,7 +521,7 @@ export function scoreControlSuite(engine, testset) {
 }
 ```
 
-- [ ] **Step 4: รันแล้วต้องผ่าน**
+- [x] **Step 4: รันแล้วต้องผ่าน**
 
 ```bash
 npm run test:tools
@@ -529,7 +529,7 @@ npm run test:tools
 
 คาดหวัง: `# pass 13` `# fail 0`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tools/lib/case-runner.mjs tools/lib/case-runner.test.mjs
