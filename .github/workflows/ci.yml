@@ -21,7 +21,10 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
 
-      # ไม่มี dependency เลย จึงไม่มีขั้นตอน npm install
+      # ไม่มีขั้นตอน npm install โดยเจตนา — runtime ที่ผู้ใช้โหลดมี dependency เป็นศูนย์
+      # และเทสต์ทั้งหมดใน CI ใช้ node:test ที่ติดมากับ Node
+      # (@anthropic-ai/sdk ใน devDependencies ติดตั้งเฉพาะใน workflow decay-watch เท่านั้น)
+      #
       # run-tests.js คืน exit code 1 เมื่อเจอ hard miss (สแกมถูกตอบว่าเป็นข้อความปกติ)
       # ซึ่งคือกรณีที่ทำให้คนเสียเงินจริง จึงต้องทำให้ CI แดงทันที
       - name: ชุดทดสอบ

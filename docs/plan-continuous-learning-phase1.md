@@ -559,7 +559,7 @@ scoreControlSuite เรียก runSuite ตัวเดียวกับ npm
   - รูปแบบ seed: `{ id, lang, text, category, firstSeen, source }`
   - รูปแบบเคสที่สร้างได้: `{ text, lang, seedId, technique, expect: 'scam' }`
 
-- [ ] **Step 1: สร้างไฟล์ seed**
+- [x] **Step 1: สร้างไฟล์ seed**
 
 สร้าง `tests/fixtures/scam-seeds.json` — ตัวอย่างสแกมจริงสำหรับป้อน LLM **ไม่ใช่คลังคำ**
 
@@ -593,7 +593,7 @@ scoreControlSuite เรียก runSuite ตัวเดียวกับ npm
 }
 ```
 
-- [ ] **Step 2: สร้างไฟล์ผลลัพธ์ตัวอย่างสำหรับ `--dry-run` และเทสต์**
+- [x] **Step 2: สร้างไฟล์ผลลัพธ์ตัวอย่างสำหรับ `--dry-run` และเทสต์**
 
 สร้าง `tests/fixtures/generated-sample.json`
 
@@ -609,7 +609,7 @@ scoreControlSuite เรียก runSuite ตัวเดียวกับ npm
 }
 ```
 
-- [ ] **Step 3: เขียนเทสต์ที่ยังล้ม**
+- [x] **Step 3: เขียนเทสต์ที่ยังล้ม**
 
 สร้าง `tools/lib/generate-cases.test.mjs` — ทดสอบเฉพาะส่วนบริสุทธิ์ **ไม่เรียก API และไม่ต้องมี key**
 
@@ -678,7 +678,7 @@ test('CASE_SCHEMA ปิด additionalProperties ทุกชั้น', () => {
 });
 ```
 
-- [ ] **Step 4: รันแล้วต้องล้ม**
+- [x] **Step 4: รันแล้วต้องล้ม**
 
 ```bash
 node --test tools/lib/generate-cases.test.mjs
@@ -686,7 +686,7 @@ node --test tools/lib/generate-cases.test.mjs
 
 คาดหวัง: `Cannot find module './generate-cases.mjs'`
 
-- [ ] **Step 5: เขียนโค้ดให้ผ่าน**
+- [x] **Step 5: เขียนโค้ดให้ผ่าน**
 
 สร้าง `tools/lib/generate-cases.mjs`
 
@@ -805,19 +805,22 @@ export async function generateCases({ seeds, count, apiKey, model = 'claude-opus
 }
 ```
 
-- [ ] **Step 6: เพิ่ม devDependency**
+- [x] **Step 6: เพิ่ม devDependency**
 
 แก้ `package.json` เพิ่มบล็อกนี้ **หลัง** `"scripts"`
 
 ```json
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.70.0"
-  },
+    "@anthropic-ai/sdk": "^0.116.0"
+  }
 ```
+
+> **เวอร์ชันตรวจของจริงแล้ว** — `npm view @anthropic-ai/sdk version` ได้ `0.116.0` (แผนฉบับแรกเดาไว้ `^0.70.0`)
+> และยืนยันว่า `client.messages.parse`, `output_config`, `stop_details`, `parsed_output` มีอยู่จริงในเวอร์ชันนี้
 
 > ติดตั้งเฉพาะใน workflow `decay-watch` เท่านั้น — `ci.yml` ยังไม่มีขั้นตอน `npm install` และ runtime ที่ผู้ใช้โหลดยังมี dependency เป็นศูนย์เหมือนเดิม
 
-- [ ] **Step 7: รันแล้วต้องผ่านทั้ง 8 เทสต์**
+- [x] **Step 7: รันแล้วต้องผ่านทั้ง 8 เทสต์**
 
 ```bash
 npm run test:tools
@@ -825,7 +828,7 @@ npm run test:tools
 
 คาดหวัง: `# pass 21` `# fail 0` (9 + 4 + 8)
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add tools/lib/generate-cases.mjs tools/lib/generate-cases.test.mjs \

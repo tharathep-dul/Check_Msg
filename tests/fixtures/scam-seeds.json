@@ -1,0 +1,27 @@
+{
+  "version": "1.0.0",
+  "updated": "2026-08-12",
+  "note": "ตัวอย่างข้อความสแกมจริงสำหรับป้อนให้ LLM สร้างเคสกัด — ไม่ใช่ pattern และไม่เกี่ยวกับ patterns.json ห้ามเอาคำจากไฟล์นี้ไปใส่คลังคำโดยตรง ต้องผ่านเคสทดสอบก่อนตามกฎ R1",
+  "seeds": [
+    { "id": "sd001", "lang": "th", "category": "delivery", "firstSeen": "2026-01-15", "source": "ประกาศเตือนสาธารณะ",
+      "text": "พัสดุตกค้างที่ศุลกากร กรุณาชำระค่าธรรมเนียมพัสดุ 45 บาท ภายใน 24 ชั่วโมง" },
+    { "id": "sd002", "lang": "th", "category": "account_threat", "firstSeen": "2026-02-03", "source": "ประกาศเตือนสาธารณะ",
+      "text": "ธนาคารแจ้งเตือน ตรวจพบธุรกรรมผิดปกติ บัญชีจะถูกระงับ กรุณายืนยันข้อมูลด่วน" },
+    { "id": "sd003", "lang": "th", "category": "loan", "firstSeen": "2026-02-20", "source": "ประกาศเตือนสาธารณะ",
+      "text": "คุณได้รับสิทธิ์กู้เงินฉุกเฉิน 50,000 บาท อนุมัติไว ไม่เช็คบูโร ไม่ต้องใช้เอกสาร" },
+    { "id": "sd004", "lang": "th", "category": "job", "firstSeen": "2026-03-05", "source": "ประกาศเตือนสาธารณะ",
+      "text": "รับสมัครงานพาร์ทไทม์ กดไลค์คลิปละ 50 บาท รายได้วันละ 1,500 ทำที่บ้านได้" },
+    { "id": "sd005", "lang": "th", "category": "impersonate_gov", "firstSeen": "2026-03-18", "source": "ประกาศเตือนสาธารณะ",
+      "text": "กรมสรรพากรแจ้ง ท่านได้รับสิทธิ์เงินคืนภาษี 4,500 บาท กดลิงก์เพื่อยืนยันตัวตน" },
+    { "id": "sd006", "lang": "th", "category": "personal_money", "firstSeen": "2026-04-02", "source": "ประกาศเตือนสาธารณะ",
+      "text": "เจ้าหน้าที่ธนาคารติดต่อ บัญชีของท่านพัวพันคดีฟอกเงิน กรุณาโอนเงินไปบัญชีปลอดภัย" },
+    { "id": "sd007", "lang": "en", "category": "otp_request", "firstSeen": "2026-04-19", "source": "ประกาศเตือนสาธารณะ",
+      "text": "Support here. We need to verify a suspicious login, please send your OTP so we can cancel it." },
+    { "id": "sd008", "lang": "en", "category": "delivery", "firstSeen": "2026-05-07", "source": "ประกาศเตือนสาธารณะ",
+      "text": "Your package could not be delivered due to an unpaid customs fee. Pay here to reschedule." },
+    { "id": "sd009", "lang": "en", "category": "investment", "firstSeen": "2026-05-24", "source": "ประกาศเตือนสาธารณะ",
+      "text": "Guaranteed returns of 30% monthly with zero risk. Double your money in 7 days, message us to start." },
+    { "id": "sd010", "lang": "th", "category": "app_install", "firstSeen": "2026-06-11", "source": "ประกาศเตือนสาธารณะ",
+      "text": "แจ้งเตือนจากกรมการปกครอง กรุณาติดตั้งแอปเวอร์ชันใหม่เพื่อยืนยันตัวตน" }
+  ]
+}
