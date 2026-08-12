@@ -1518,7 +1518,7 @@ git commit -m "ci: บังคับกฎ R1 — pattern ใหม่ต้อ
 ## หลังทำครบทุก task
 
 - [ ] **ตั้ง secret** — Settings → Secrets and variables → Actions → เพิ่ม `OPENAI_API_KEY`
-- [ ] **สร้าง label** — `gh label create decay-watch --description "ผลจากระบบเฝ้าระวังการเสื่อม" --color FBCA04`
+- [x] **สร้าง label** — ~~ทำด้วยมือ~~ workflow สร้างให้เองแล้วถ้ายังไม่มี (แก้ตอนทำ Task 6)
 - [ ] **รันครั้งแรกด้วยมือ** — Actions → decay-watch → Run workflow → ดูว่าสร้างเคสได้และบันทึกสำเร็จ
 - [ ] **อย่าเพิ่งตั้งเกณฑ์เตือน** — ปล่อยให้เก็บข้อมูล 4-6 สัปดาห์ก่อน ตามหัวข้อ 12 ของเอกสารออกแบบ ค่า `dropThreshold` และ `consecutive` ปัจจุบันเป็นค่าเดาที่ยังไม่ควรเชื่อ
 
