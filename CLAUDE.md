@@ -110,6 +110,7 @@ admin ใช้ `JSON.stringify(out, null, 2)` ซึ่งกาง 167 pattern
 | `docs/design-continuous-learning.md` | เอกสารออกแบบระบบเฝ้าระวังการเสื่อม + กฎ R1–R5 |
 | `docs/plan-continuous-learning-phase1.md` | แผนลงมือ 7 task — **งานที่กำลังทำอยู่ตอนนี้** |
 | `docs/deploy-cloudflare-pages.md` · `docs/deploy-vps.md` | วิธี deploy สองแบบ |
+| `docs/summary-v03-to-v05.md` | สรุปว่าเพิ่มอะไรจาก v0.3 + อธิบายวิธีทำงานและวิธีใช้งาน (สำหรับคนนอกทีม) |
 
 ## งานที่กำลังทำ
 
