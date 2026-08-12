@@ -27,6 +27,12 @@ jobs:
       - name: ชุดทดสอบ
         run: npm test
 
+      # ทดสอบฟังก์ชันย่อยของเครื่องมือใน tools/ แยกจากชุดทดสอบ pattern
+      # ใช้ node:test ที่ติดมากับ Node จึงยังไม่ต้อง npm install
+      # ตัวรันจะล้มถ้าหาไฟล์เทสต์ไม่เจอ กัน CI เขียวทั้งที่ไม่ได้ตรวจอะไร
+      - name: ชุดทดสอบของ tools/
+        run: npm run test:tools
+
       - name: build ไฟล์ standalone ได้
         run: node build.js
 

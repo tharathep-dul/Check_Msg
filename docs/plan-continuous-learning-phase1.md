@@ -31,6 +31,7 @@
 
 | ไฟล์ | หน้าที่ | Task |
 |---|---|---|
+| `tools/run-tool-tests.mjs` | หาไฟล์ `*.test.mjs` ใน `tools/` แล้วส่งให้ `node --test` — ล้มถ้าหาไม่เจอ | 1 |
 | `tools/lib/decay-store.mjs` | อ่าน/เขียน/วิเคราะห์แนวโน้มจาก `decay.jsonl` — บริสุทธิ์ ไม่รู้จัก engine | 2 |
 | `tools/lib/decay-store.test.mjs` | ทดสอบข้างบน | 2 |
 | `tools/lib/case-runner.mjs` | ให้คะแนนเคสด้วย engine — รับ engine เข้ามา ไม่สร้างเอง | 3 |
@@ -60,7 +61,7 @@
 **Interfaces:**
 - Produces: คำสั่ง `npm run test:tools` ที่ทุก task หลังจากนี้ใช้
 
-- [ ] **Step 1: เขียนเทสต์ที่ต้องผ่านอยู่แล้ว เพื่อพิสูจน์ว่า runner ทำงาน**
+- [x] **Step 1: เขียนเทสต์ที่ต้องผ่านอยู่แล้ว เพื่อพิสูจน์ว่า runner ทำงาน**
 
 สร้าง `tools/lib/smoke.test.mjs`
 
@@ -73,7 +74,7 @@ test('node:test ใช้งานได้', () => {
 });
 ```
 
-- [ ] **Step 2: รันแล้วต้องล้มเพราะยังไม่มี script**
+- [x] **Step 2: รันแล้วต้องล้มเพราะยังไม่มี script**
 
 ```bash
 npm run test:tools
@@ -81,22 +82,72 @@ npm run test:tools
 
 คาดหวัง: `npm ERR! Missing script: "test:tools"`
 
-- [ ] **Step 3: เพิ่ม script**
+- [x] **Step 3: เขียนตัวรันเทสต์ แล้วเพิ่ม script**
+
+> **แก้จากแผนเดิมตอนลงมือจริง** — แผนเดิมเขียนว่าใช้ `node --test` เปล่า ๆ แต่พอรันจริงพบว่า
+> มันหยิบ `test-core.js` ไปรันด้วย เพราะชื่อตรงกับรูปแบบ `test-*.js` ที่ Node ถือว่าเป็นไฟล์เทสต์
+> ทดสอบทั้ง 3 เวอร์ชันแล้วได้ผลดังนี้
+>
+> | คำสั่ง | Node 20 | Node 22 | Node 24 |
+> |---|---|---|---|
+> | `node --test` | หยิบ `test-core.js` | หยิบ | หยิบ |
+> | `node --test tools/` | ใช้ได้ | **pass 0 เงียบ ๆ** | **pass 0 เงียบ ๆ** |
+> | ระบุไฟล์ตรง ๆ | ✓ | ✓ | ✓ |
+>
+> `node --test tools/` บน Node 22 ขึ้นไปให้ `pass 0` โดยไม่แจ้งอะไร — **CI จะเขียวทั้งที่ไม่ได้รันเทสต์เลย**
+> ซึ่งอันตรายกว่าล้ม จึงต้องระบุไฟล์ตรง ๆ และให้ตัวรันล้มเมื่อหาไฟล์ไม่เจอ
+
+สร้าง `tools/run-tool-tests.mjs`
+
+```js
+#!/usr/bin/env node
+/**
+ * รันเทสต์ของเครื่องมือใน tools/ โดยหาไฟล์เองแล้วส่งให้ node --test ตรง ๆ
+ * (เหตุผลที่ต้องมีไฟล์นี้อยู่ในคอมเมนต์หัวไฟล์จริง)
+ */
+
+import { readdir } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { dirname, join, relative } from 'node:path';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const TOOLS_DIR = join(ROOT, 'tools');
+
+/** ไล่หาไฟล์ที่ลงท้าย .test.mjs ในโฟลเดอร์และโฟลเดอร์ย่อยทั้งหมด */
+async function findTestFiles(dir) {
+  const found = [];
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) found.push(...await findTestFiles(path));
+    else if (entry.name.endsWith('.test.mjs')) found.push(path);
+  }
+  return found.sort();
+}
+
+const files = await findTestFiles(TOOLS_DIR);
+
+if (files.length === 0) {
+  console.error('✗ ไม่พบไฟล์เทสต์เลยใน tools/');
+  console.error('  ถ้าปล่อยให้ผ่าน CI จะเขียวทั้งที่ไม่ได้ตรวจอะไร ซึ่งแย่กว่าล้ม');
+  process.exit(1);
+}
+
+console.log(`พบไฟล์เทสต์ ${files.length} ไฟล์`);
+for (const f of files) console.log(`  ${relative(ROOT, f)}`);
+console.log('');
+
+const child = spawn(process.execPath, ['--test', ...files], { stdio: 'inherit', cwd: ROOT });
+child.on('exit', code => process.exit(code ?? 1));
+```
 
 แก้ `package.json` เพิ่มบรรทัดใน `scripts` (วางต่อจาก `"test:report"`)
 
 ```json
-"test:tools": "node --test"
+"test:tools": "node tools/run-tool-tests.mjs"
 ```
 
-> **ต้องเป็น `node --test` เปล่า ๆ ห้ามใส่ path** — ทดสอบบน Node 20 และ 22 จริงแล้วพบว่า
-> `node --test tools/` มองว่า `tools/` เป็น *ไฟล์เทสต์* แล้วล้มทันที ส่วน glob
-> `node --test "tools/**/*.test.mjs"` ใช้ได้เฉพาะ Node 22 ขึ้นไป — Node 20 ที่อยู่ใน CI matrix หาไฟล์ไม่เจอ
->
-> `node --test` เปล่า ๆ ทำงานถูกต้องทั้งสองเวอร์ชัน โดยไล่หาไฟล์ที่ชื่อลงท้าย `*.test.mjs`
-> ทั่วทั้งโปรเจกต์ และ **ไม่หยิบ `tests/run-tests.js` ไปรัน** เพราะชื่อไม่เข้ารูปแบบ (ยืนยันแล้ว)
-
-- [ ] **Step 4: รันแล้วต้องผ่าน**
+- [x] **Step 4: รันแล้วต้องผ่าน**
 
 ```bash
 npm run test:tools
@@ -104,7 +155,7 @@ npm run test:tools
 
 คาดหวัง: `# pass 1` และ exit 0
 
-- [ ] **Step 5: ต่อเข้า CI**
+- [x] **Step 5: ต่อเข้า CI**
 
 แก้ `.github/workflows/ci.yml` แทรก step ใหม่ **หลัง** step ชื่อ `ชุดทดสอบ` และ **ก่อน** step `build ไฟล์ standalone ได้`
 
@@ -115,7 +166,7 @@ npm run test:tools
         run: npm run test:tools
 ```
 
-- [ ] **Step 6: ตรวจว่า CI ทั้งชุดยังผ่านในเครื่อง**
+- [x] **Step 6: ตรวจว่า CI ทั้งชุดยังผ่านในเครื่อง**
 
 ```bash
 npm test && npm run test:tools && node build.js && git diff --exit-code --stat dist/
@@ -123,7 +174,7 @@ npm test && npm run test:tools && node build.js && git diff --exit-code --stat d
 
 คาดหวัง: ผ่านหมด exit 0
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add package.json .github/workflows/ci.yml tools/lib/smoke.test.mjs
