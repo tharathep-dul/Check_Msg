@@ -9,6 +9,7 @@
     "test": "node tests/run-tests.js",
     "test:report": "node tests/run-tests.js --md tests/last-report.md",
     "test:tools": "node tools/run-tool-tests.mjs",
+    "check:provenance": "node tools/check-provenance.mjs",
     "serve": "python3 -m http.server 8080",
     "compare": "node tools/compare-versions.mjs",
     "watch:decay": "node tools/watch-decay.mjs"

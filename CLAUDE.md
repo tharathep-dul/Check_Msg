@@ -19,6 +19,8 @@ npm test              # ชุดทดสอบ pattern — คืน exit 1 �
 npm run test:tools    # ทดสอบฟังก์ชันใน tools/ (node:test)
 npm run build         # สร้าง dist/chekmsg-standalone.html
 npm run compare       # เทียบ v0.3 กับรุ่นปัจจุบันด้วยชุดทดสอบเดียวกัน
+npm run check:provenance  # pattern ใหม่ต้องบอกที่มาและอ้างเคสที่รองรับ (กฎ R1)
+npm run watch:decay -- --dry-run   # เฝ้าระวังการเสื่อม โหมดทดลอง ไม่เรียก API
 npm run test:report   # เขียน tests/last-report.md
 npm run serve         # เปิด http://localhost:8080 (ต้องใช้ web server เพราะ fetch patterns.json)
 
@@ -29,7 +31,7 @@ node --test tools/lib/decay-store.test.mjs   # รันไฟล์เทสต
 **ก่อน commit ทุกครั้ง**
 
 ```bash
-npm test && npm run test:tools && node build.js && git diff --exit-code dist/
+npm test && npm run test:tools && npm run check:provenance && node build.js && git diff --exit-code dist/
 ```
 
 `dist/` ต้องตรงกับ source เสมอ ลืม build แล้ว commit จะทำให้ CI แดง
@@ -78,6 +80,10 @@ ocr-proxy/      ตัวกลางเรียก Typhoon OCR (ไม่บ�
 curl -sL <url> | openssl dgst -sha384 -binary | openssl base64 -A
 ```
 
+**8. ห้ามเพิ่ม id ลง `tests/fixtures/grandfathered-patterns.json`**
+ไฟล์นั้นคือรายชื่อ pattern 167 ตัวที่มีอยู่ก่อนเริ่มบังคับกฎ R1 การเพิ่ม id เข้าไปคือการหลบประตู
+pattern ใหม่ต้องมี `src`, `added`, `case` และ `case` ต้องชี้ไปยังเคสที่มีอยู่จริงใน `testset.json`
+
 ## กับดักที่เคยกัดมาแล้ว
 
 **`npm run test:tools` ต้องเรียกผ่าน `tools/run-tool-tests.mjs` ห้ามเรียก `node --test` ตรง ๆ**
@@ -104,7 +110,8 @@ admin ใช้ `JSON.stringify(out, null, 2)` ซึ่งกาง 167 pattern
 ## งานที่กำลังทำ
 
 กำลังทำตาม `docs/plan-continuous-learning-phase1.md` ทีละ task โดยหยุดให้เจ้าของรีวิวเป็นระยะ
-checkbox ในไฟล์แผนบอกความคืบหน้า — Task 1–5 เสร็จแล้ว เหลือ Task 6 (workflow) และ 7 (ประตู provenance)
+**เฟส 1 เสร็จครบ 7 task แล้ว** — ระบบเฝ้าระวังการเสื่อมทำงานได้ และประตู provenance บังคับกฎ R1 อยู่ใน CI
+ขั้นต่อไปคือระบบ B (เติมคำจากประกาศสาธารณะ) ซึ่งยังไม่มีแผน — ต้องตอบก่อนว่าจะดึงประกาศจากแหล่งไหน
 
 **ข้อจำกัดตลอดแผนนี้**
 

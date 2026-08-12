@@ -1231,7 +1231,15 @@ git commit -m "ci: workflow เฝ้าระวังการเสื่อ�
   - `checkProvenance(patterns, testset, grandfathered) → { errors: string[], checked: number, skipped: number }`
   - คำสั่ง `npm run check:provenance`
 
-- [ ] **Step 1: สร้างรายชื่อ pattern เดิมที่ยกเว้นให้**
+> **แก้จากแผนเดิมตอนลงมือจริง — สองข้อ**
+>
+> 1. **รวมฟิลด์ที่ขาดเป็น error เดียวต่อ pattern** — แผนเดิมเขียนให้ push error ทีละฟิลด์
+>    ซึ่งทำให้เทสต์ข้อสุดท้าย (legit + risk ขาดครบ 3 ฟิลด์) ได้ 6 error ไม่ใช่ 2 ตามที่ assert ไว้
+>    รวมเป็นบรรทัดเดียวแล้วทั้งตัวเลขตรงและข้อความใน CI อ่านง่ายกว่า
+> 2. **สคริปต์พิสูจน์ประตูต้องอยู่ใน repo ไม่ใช่ `/tmp`** — ESM resolve import จากตำแหน่ง
+>    ไฟล์สคริปต์ ไม่ใช่ cwd วางไว้ `/tmp` แล้ว `import './tools/...'` จะหาไม่เจอ
+
+- [x] **Step 1: สร้างรายชื่อ pattern เดิมที่ยกเว้นให้**
 
 ```bash
 node -e "
@@ -1249,7 +1257,7 @@ console.log('บันทึก', ids.length, 'id');
 
 คาดหวัง: `บันทึก 167 id`
 
-- [ ] **Step 2: เขียนเทสต์ที่ยังล้ม**
+- [x] **Step 2: เขียนเทสต์ที่ยังล้ม**
 
 สร้าง `tools/check-provenance.test.mjs`
 
@@ -1321,7 +1329,7 @@ test('ตรวจ pattern ฝั่ง legit และ risk ด้วย', () =
 });
 ```
 
-- [ ] **Step 3: รันแล้วต้องล้ม**
+- [x] **Step 3: รันแล้วต้องล้ม**
 
 ```bash
 node --test tools/check-provenance.test.mjs
@@ -1329,7 +1337,7 @@ node --test tools/check-provenance.test.mjs
 
 คาดหวัง: `Cannot find module './check-provenance.mjs'`
 
-- [ ] **Step 4: เขียนโค้ดให้ผ่าน**
+- [x] **Step 4: เขียนโค้ดให้ผ่าน**
 
 สร้าง `tools/check-provenance.mjs`
 
@@ -1411,7 +1419,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 ```
 
-- [ ] **Step 5: รันเทสต์แล้วต้องผ่านทั้ง 7 ข้อ**
+- [x] **Step 5: รันเทสต์แล้วต้องผ่านทั้ง 7 ข้อ**
 
 ```bash
 npm run test:tools
@@ -1419,7 +1427,7 @@ npm run test:tools
 
 คาดหวัง: `# pass 28` `# fail 0` (9 + 4 + 8 + 7)
 
-- [ ] **Step 6: รัน CLI กับคลังคำจริง**
+- [x] **Step 6: รัน CLI กับคลังคำจริง**
 
 ```bash
 node tools/check-provenance.mjs
@@ -1427,7 +1435,7 @@ node tools/check-provenance.mjs
 
 คาดหวัง: `ตรวจ pattern ใหม่ 0 ตัว (ยกเว้นของเดิม 167 ตัว)` และ `✓ ผ่าน`
 
-- [ ] **Step 7: พิสูจน์ว่าประตูทำงานจริง**
+- [x] **Step 7: พิสูจน์ว่าประตูทำงานจริง**
 
 เขียนสคริปต์ชั่วคราวแทนการใช้ `node -e` เพราะโค้ดที่มี top-level await ใน `-e` เปราะกับลำดับ flag
 
@@ -1462,7 +1470,7 @@ rm /tmp/ทดสอบประตู.mjs
 
 คาดหวัง: `✓ ประตูทำงาน — จับได้ 3 ข้อ` และ **`patterns.json` ตัวจริงต้องไม่ถูกแก้** (สคริปต์แก้แค่ในหน่วยความจำ)
 
-- [ ] **Step 8: เพิ่ม script และต่อเข้า CI**
+- [x] **Step 8: เพิ่ม script และต่อเข้า CI**
 
 แก้ `package.json` เพิ่มใน `scripts`
 
@@ -1480,7 +1488,7 @@ rm /tmp/ทดสอบประตู.mjs
         run: npm run check:provenance
 ```
 
-- [ ] **Step 9: รัน CI ทั้งชุดในเครื่อง**
+- [x] **Step 9: รัน CI ทั้งชุดในเครื่อง**
 
 ```bash
 npm test && npm run test:tools && npm run check:provenance && \
@@ -1489,7 +1497,7 @@ for f in ocr-proxy/*.js; do node --check "$f" || exit 1; done && \
 echo "✓ ผ่านทุกขั้นตอนของ CI"
 ```
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add tools/check-provenance.mjs tools/check-provenance.test.mjs \

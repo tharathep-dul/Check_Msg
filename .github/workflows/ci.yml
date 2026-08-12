@@ -36,6 +36,12 @@ jobs:
       - name: ชุดทดสอบของ tools/
         run: npm run test:tools
 
+      # บังคับกฎ R1 จาก docs/design-continuous-learning.md — เคสมาก่อนคำ
+      # pattern ที่เพิ่มใหม่ต้องบอกที่มาและต้องอ้างเคสทดสอบที่มีอยู่จริง
+      # ถ้าไม่มีขั้นตอนนี้ กฎจะเป็นแค่ความตั้งใจดีที่ค่อย ๆ ถูกละเลย
+      - name: pattern ใหม่ต้องบอกที่มาและอ้างเคสที่รองรับ
+        run: npm run check:provenance
+
       - name: build ไฟล์ standalone ได้
         run: node build.js
 
