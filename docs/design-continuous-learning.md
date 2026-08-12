@@ -141,7 +141,7 @@ tests/history/decay.jsonl             บันทึกคะแนนย้อ
 {"date":"2026-08-11","patternsVersion":"0.5.0","seedsVersion":"1.0.0",
  "generated":{"n":50,"caught":21,"recall":0.42},
  "control":{"n":56,"correct":44,"recall":0.788},
- "model":"claude-opus-5"}
+ "model":"gpt-5.2"}
 ```
 
 ### วัด pattern lag

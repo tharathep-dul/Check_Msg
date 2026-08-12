@@ -3,7 +3,7 @@
  * เฝ้าระวังการเสื่อมของความแม่นยำ
  *
  *   node tools/watch-decay.mjs --dry-run       ใช้ผลลัพธ์ตัวอย่าง ไม่เรียก API
- *   node tools/watch-decay.mjs --count 50      เรียก API จริง ต้องมี ANTHROPIC_API_KEY
+ *   node tools/watch-decay.mjs --count 50      เรียก API จริง ต้องมี OPENAI_API_KEY
  *   node tools/watch-decay.mjs --no-write      รันแต่ไม่บันทึกลง decay.jsonl
  *
  * สคริปต์นี้เขียนได้แค่ tests/history/decay.jsonl เท่านั้น
@@ -35,7 +35,7 @@ const engine = createEngine(patterns);
 
 const dryRun = has('--dry-run');
 const count = Number(arg('--count', 50));
-const model = arg('--model', 'claude-opus-5');
+const model = arg('--model', 'gpt-5.2');
 
 /* ---------- สร้างเคส ---------- */
 let generated;
@@ -44,9 +44,9 @@ if (dryRun) {
   generated = validateGenerated(sample, seedsFile.seeds);
   console.log(`โหมดทดลอง: ใช้ผลลัพธ์ตัวอย่าง ${generated.cases.length} เคส`);
 } else {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    console.error('✗ ไม่พบ ANTHROPIC_API_KEY — ใช้ --dry-run ถ้าต้องการทดลองโดยไม่เรียก API');
+    console.error('✗ ไม่พบ OPENAI_API_KEY — ใช้ --dry-run ถ้าต้องการทดลองโดยไม่เรียก API');
     process.exit(1);
   }
   try {

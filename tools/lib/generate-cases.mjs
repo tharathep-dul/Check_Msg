@@ -7,8 +7,8 @@
  * ถ้า LLM เห็นคลังคำ มันจะเขียนเคสที่วนอยู่รอบคำที่มีอยู่แล้ว ซึ่งคือกับดัก
  * เดียวกับ regression_v03 แค่เปลี่ยนคนออกข้อสอบเป็น AI
  *
- * ส่วนบริสุทธิ์ (buildPrompt, validateGenerated) แยกจากการเรียก API
- * เพื่อให้ทดสอบได้ครบโดยไม่ต้องมี API key
+ * ส่วนบริสุทธิ์ (buildPrompt, validateGenerated, CASE_SCHEMA) แยกจากการเรียก API
+ * เพื่อให้ทดสอบได้ครบโดยไม่ต้องมี API key และเปลี่ยนผู้ให้บริการได้โดยไม่แตะส่วนอื่น
  */
 
 /** บังคับรูปแบบผลลัพธ์ด้วย structured outputs จะได้ไม่ต้อง parse ข้อความอิสระ */
@@ -86,27 +86,47 @@ export function validateGenerated(result, seeds) {
 
 /**
  * เรียก API จริง — ส่วนเดียวในไฟล์นี้ที่มี I/O
+ *
+ * แยกไว้ท้ายไฟล์เพื่อให้เปลี่ยนผู้ให้บริการได้โดยไม่แตะส่วนอื่น
+ * ตอนนี้ใช้ OpenAI — ถ้าจะสลับกลับไปเจ้าอื่น แก้เฉพาะฟังก์ชันนี้ฟังก์ชันเดียว
+ * ส่วนบริสุทธิ์ข้างบนกับเทสต์ทั้ง 8 ข้อไม่ต้องแตะเลย
+ *
  * โยน error เมื่อถูกปฏิเสธหรือ API ล่ม ให้ผู้เรียกตัดสินใจว่าจะทำยังไงต่อ
  */
-export async function generateCases({ seeds, count, apiKey, model = 'claude-opus-5' }) {
-  const { default: Anthropic } = await import('@anthropic-ai/sdk');
-  const client = new Anthropic({ apiKey });
+export async function generateCases({ seeds, count, apiKey, model = 'gpt-5.2' }) {
+  const { default: OpenAI } = await import('openai');
+  const client = new OpenAI({ apiKey });
 
-  const response = await client.messages.parse({
+  const completion = await client.chat.completions.create({
     model,
-    max_tokens: 16000,
-    thinking: { type: 'adaptive' },
-    output_config: { format: { type: 'json_schema', schema: CASE_SCHEMA } },
+    // รุ่นใหม่เลิกรับ max_tokens แล้ว ต้องใช้ max_completion_tokens
+    max_completion_tokens: 16000,
+    response_format: {
+      type: 'json_schema',
+      json_schema: { name: 'generated_cases', schema: CASE_SCHEMA, strict: true }
+    },
     messages: [{ role: 'user', content: buildPrompt(seeds, count) }]
   });
 
-  // ตัวจำแนกด้านความปลอดภัยอาจปฏิเสธคำขอที่ให้เขียนข้อความหลอกลวง
-  // ต้องเช็คก่อนอ่านผลลัพธ์เสมอ ไม่งั้นจะได้ค่าว่างแล้วนึกว่าระบบเสื่อม
-  if (response.stop_reason === 'refusal') {
-    const err = new Error(`ถูกปฏิเสธ: ${response.stop_details?.category ?? 'ไม่ระบุ'}`);
+  const message = completion.choices?.[0]?.message;
+
+  // โมเดลอาจปฏิเสธคำขอที่ให้เขียนข้อความหลอกลวง ต้องเช็คก่อนอ่านผลลัพธ์เสมอ
+  // ไม่งั้นจะได้ค่าว่างแล้วบันทึกเป็น recall 0% ทั้งที่ระบบไม่ได้เสื่อม
+  if (message?.refusal) {
+    const err = new Error(`ถูกปฏิเสธ: ${message.refusal}`);
     err.refusal = true;
     throw err;
   }
 
-  return validateGenerated(response.parsed_output, seeds);
+  // ถูกตัดกลางคันเพราะชนเพดาน token — JSON จะไม่สมบูรณ์ ต้องล้มดัง ๆ
+  const finish = completion.choices?.[0]?.finish_reason;
+  if (finish && finish !== 'stop') {
+    throw new Error(`ผลลัพธ์ไม่สมบูรณ์ (finish_reason: ${finish})`);
+  }
+
+  if (typeof message?.content !== 'string') {
+    throw new Error('ไม่ได้ข้อความกลับมาจากโมเดล');
+  }
+
+  return validateGenerated(JSON.parse(message.content), seeds);
 }

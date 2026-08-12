@@ -104,11 +104,13 @@ admin ใช้ `JSON.stringify(out, null, 2)` ซึ่งกาง 167 pattern
 ## งานที่กำลังทำ
 
 กำลังทำตาม `docs/plan-continuous-learning-phase1.md` ทีละ task โดยหยุดให้เจ้าของรีวิวเป็นระยะ
-checkbox ในไฟล์แผนบอกความคืบหน้า — Task 1 เสร็จแล้ว
+checkbox ในไฟล์แผนบอกความคืบหน้า — Task 1–5 เสร็จแล้ว เหลือ Task 6 (workflow) และ 7 (ประตู provenance)
 
 **ข้อจำกัดตลอดแผนนี้**
 
 - ห้ามแก้ `patterns.json` และ `tests/testset.json`
-- `@anthropic-ai/sdk` เป็น devDependency ติดตั้งเฉพาะใน workflow `decay-watch` — `ci.yml` ต้องไม่มี `npm install`
+- `openai` เป็น devDependency ติดตั้งเฉพาะใน workflow `decay-watch` — `ci.yml` ต้องไม่มี `npm install`
 - ฟังก์ชันที่ส่งข้อมูลให้ LLM ห้ามรับ `patterns` เป็นพารามิเตอร์ (กฎ R3 — ถ้า LLM เห็นคลังคำ มันจะเขียนเคสที่วนอยู่รอบคำที่มีอยู่แล้ว)
-- โมเดลที่ใช้: `claude-opus-5`
+- ผู้ให้บริการ LLM: **OpenAI** โมเดล `gpt-5.2` — การเรียก API อยู่ในฟังก์ชันเดียวคือ
+  `generateCases()` ท้าย `tools/lib/generate-cases.mjs` เปลี่ยนเจ้าได้โดยไม่แตะส่วนอื่นและไม่แตะเทสต์
+- รุ่นใหม่ของ OpenAI เลิกรับ `max_tokens` ต้องใช้ `max_completion_tokens`

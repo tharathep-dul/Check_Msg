@@ -6,7 +6,7 @@
 
 **สถาปัตยกรรม:** สคริปต์ Node ล้วนใน `tools/` แยกส่วนบริสุทธิ์ (คำนวณ) ออกจากส่วนที่มี I/O และการเรียก API เพื่อให้ทดสอบได้โดยไม่ต้องมี API key ระบบเขียนได้แค่ `tests/history/decay.jsonl` กับ GitHub issue เท่านั้น **ไม่แตะ `patterns.json` และ `tests/testset.json` เลย**
 
-**เทคโนโลยี:** Node 20+ · `node:test` (built-in) · `@anthropic-ai/sdk` (devDependency เฉพาะ workflow) · GitHub Actions
+**เทคโนโลยี:** Node 20+ · `node:test` (built-in) · `openai` (devDependency เฉพาะ workflow) · GitHub Actions
 
 **อ้างอิง:** [`docs/design-continuous-learning.md`](design-continuous-learning.md) — แผนนี้ครอบคลุมหัวข้อ 6 และ 8 ของเอกสารนั้น (ระบบ B อยู่ในแผนแยก)
 
@@ -17,10 +17,10 @@
 ทุก task ต้องเคารพข้อเหล่านี้ ไม่ต้องเขียนซ้ำในแต่ละ task
 
 - **runtime ของเครื่องมือที่ผู้ใช้โหลดต้องมี dependency เป็นศูนย์เสมอ** — `index.html`, `engine.js`, `patterns.json` ห้ามมี import จาก node_modules
-- `@anthropic-ai/sdk` เป็น **devDependency เท่านั้น** และติดตั้งเฉพาะใน workflow `decay-watch` — `.github/workflows/ci.yml` ห้ามมีขั้นตอน `npm install`
+- `openai` เป็น **devDependency เท่านั้น** และติดตั้งเฉพาะใน workflow `decay-watch` — `.github/workflows/ci.yml` ห้ามมีขั้นตอน `npm install`
 - **ห้ามแก้ `patterns.json` หรือ `tests/testset.json`** ในแผนนี้ทั้งแผน
 - `npm test` ต้องคืน exit 1 เมื่อเจอ hard miss เหมือนเดิม ห้ามเปลี่ยนความหมาย
-- โมเดลที่ใช้: `claude-opus-5`
+- ผู้ให้บริการ LLM: **OpenAI** โมเดล `gpt-5.2` (เปลี่ยนจาก Anthropic ระหว่างทำ Task 6 ตามที่เจ้าของเลือก)
 - **กฎ R3:** ฟังก์ชันใดที่ส่งข้อมูลไปให้ LLM ห้ามรับ `patterns` เป็นพารามิเตอร์ และห้ามอ่าน `patterns.json`
 - คอมเมนต์และข้อความที่ผู้ใช้เห็นเขียนภาษาไทย ตามแบบของไฟล์อื่นในโปรเจกต์
 - commit ทุก task แยกกัน ข้อความ commit ภาษาไทย
@@ -221,7 +221,7 @@ const entry = (genRecall, ctlRecall = 0.788) => ({
   date: '2026-01-01', patternsVersion: '0.5.0', seedsVersion: '1.0.0',
   generated: { n: 50, caught: Math.round(genRecall * 50), recall: genRecall },
   control: { n: 56, correct: Math.round(ctlRecall * 56), recall: ctlRecall, hard: 0 },
-  model: 'claude-opus-5'
+  model: 'gpt-5.2'
 });
 
 test('parseJsonl ข้ามบรรทัดว่างและช่องว่าง', () => {
@@ -781,8 +781,8 @@ export function validateGenerated(result, seeds) {
  * เรียก API จริง — ส่วนเดียวในไฟล์นี้ที่มี I/O
  * โยน error เมื่อถูกปฏิเสธหรือ API ล่ม ให้ผู้เรียกตัดสินใจว่าจะทำยังไงต่อ
  */
-export async function generateCases({ seeds, count, apiKey, model = 'claude-opus-5' }) {
-  const { default: Anthropic } = await import('@anthropic-ai/sdk');
+export async function generateCases({ seeds, count, apiKey, model = 'gpt-5.2' }) {
+  const { default: OpenAI } = await import('openai');
   const client = new Anthropic({ apiKey });
 
   const response = await client.messages.parse({
@@ -811,12 +811,13 @@ export async function generateCases({ seeds, count, apiKey, model = 'claude-opus
 
 ```json
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.116.0"
+    "openai": "^7.4.0"
   }
 ```
 
-> **เวอร์ชันตรวจของจริงแล้ว** — `npm view @anthropic-ai/sdk version` ได้ `0.116.0` (แผนฉบับแรกเดาไว้ `^0.70.0`)
-> และยืนยันว่า `client.messages.parse`, `output_config`, `stop_details`, `parsed_output` มีอยู่จริงในเวอร์ชันนี้
+> **เปลี่ยนผู้ให้บริการเป็น OpenAI ระหว่างทำ Task 6 ตามที่เจ้าของเลือก** — `openai` เวอร์ชัน `7.4.0`
+> เปลี่ยนเฉพาะฟังก์ชัน `generateCases()` ส่วนบริสุทธิ์และเทสต์ทั้ง 8 ข้อไม่ต้องแตะเลย
+> ยืนยันด้วยการเรียกจริงด้วย key ปลอมแล้วได้ `401` ไม่ใช่ `400` แปลว่าพารามิเตอร์ถูกรูป
 
 > ติดตั้งเฉพาะใน workflow `decay-watch` เท่านั้น — `ci.yml` ยังไม่มีขั้นตอน `npm install` และ runtime ที่ผู้ใช้โหลดยังมี dependency เป็นศูนย์เหมือนเดิม
 
@@ -875,7 +876,7 @@ git commit -m "feat(watch): สร้างเคสกัดด้วย LLM �
  * เฝ้าระวังการเสื่อมของความแม่นยำ
  *
  *   node tools/watch-decay.mjs --dry-run       ใช้ผลลัพธ์ตัวอย่าง ไม่เรียก API
- *   node tools/watch-decay.mjs --count 50      เรียก API จริง ต้องมี ANTHROPIC_API_KEY
+ *   node tools/watch-decay.mjs --count 50      เรียก API จริง ต้องมี OPENAI_API_KEY
  *   node tools/watch-decay.mjs --no-write      รันแต่ไม่บันทึกลง decay.jsonl
  *
  * สคริปต์นี้เขียนได้แค่ tests/history/decay.jsonl เท่านั้น
@@ -906,7 +907,7 @@ const seedsFile = JSON.parse(await readFile(join(ROOT, 'tests/fixtures/scam-seed
 const engine = createEngine(patterns);
 
 const count = Number(arg('--count', 50));
-const model = arg('--model', 'claude-opus-5');
+const model = arg('--model', 'gpt-5.2');
 
 /* ---------- สร้างเคส ---------- */
 let generated;
@@ -915,9 +916,9 @@ if (has('--dry-run')) {
   generated = validateGenerated(sample, seedsFile.seeds);
   console.log(`โหมดทดลอง: ใช้ผลลัพธ์ตัวอย่าง ${generated.cases.length} เคส`);
 } else {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    console.error('✗ ไม่พบ ANTHROPIC_API_KEY — ใช้ --dry-run ถ้าต้องการทดลองโดยไม่เรียก API');
+    console.error('✗ ไม่พบ OPENAI_API_KEY — ใช้ --dry-run ถ้าต้องการทดลองโดยไม่เรียก API');
     process.exit(1);
   }
   try {
@@ -1053,7 +1054,7 @@ git commit -m "feat(watch): CLI เฝ้าระวังการเสื่
 - Create: `.github/workflows/decay-watch.yml`
 
 **Interfaces:**
-- Consumes: `npm run watch:decay`, secret `ANTHROPIC_API_KEY`
+- Consumes: `npm run watch:decay`, secret `OPENAI_API_KEY`
 - Produces: commit ที่เพิ่มบรรทัดใน `tests/history/decay.jsonl` และ issue เมื่อพบการเสื่อม
 
 - [ ] **Step 1: เขียน workflow**
@@ -1092,12 +1093,12 @@ jobs:
       # workflow นี้เป็นที่เดียวที่ติดตั้ง dependency
       # ci.yml ยังไม่มีขั้นตอนนี้ และ runtime ที่ผู้ใช้โหลดยังมี dependency เป็นศูนย์
       - name: ติดตั้ง SDK
-        run: npm install --no-save @anthropic-ai/sdk
+        run: npm ci
 
       - name: เฝ้าระวังการเสื่อม
         id: watch
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: npm run watch:decay -- --count ${{ inputs.count || '50' }}
 
       - name: บันทึกผลกลับเข้า repo
@@ -1166,7 +1167,7 @@ git commit -m "ci: workflow เฝ้าระวังการเสื่อ�
 เป็น workflow เดียวที่ติดตั้ง dependency — ci.yml ยังคงไม่ต้อง npm install"
 ```
 
-> **หลัง merge ต้องตั้ง secret** ที่ Settings → Secrets and variables → Actions → `ANTHROPIC_API_KEY`
+> **หลัง merge ต้องตั้ง secret** ที่ Settings → Secrets and variables → Actions → `OPENAI_API_KEY`
 > ถ้ายังไม่ตั้ง workflow จะล้มที่ step `เฝ้าระวังการเสื่อม` ด้วย exit 1 พร้อมข้อความว่าไม่พบ key
 
 ---
@@ -1465,7 +1466,7 @@ git commit -m "ci: บังคับกฎ R1 — pattern ใหม่ต้อ
 
 ## หลังทำครบทุก task
 
-- [ ] **ตั้ง secret** — Settings → Secrets and variables → Actions → เพิ่ม `ANTHROPIC_API_KEY`
+- [ ] **ตั้ง secret** — Settings → Secrets and variables → Actions → เพิ่ม `OPENAI_API_KEY`
 - [ ] **สร้าง label** — `gh label create decay-watch --description "ผลจากระบบเฝ้าระวังการเสื่อม" --color FBCA04`
 - [ ] **รันครั้งแรกด้วยมือ** — Actions → decay-watch → Run workflow → ดูว่าสร้างเคสได้และบันทึกสำเร็จ
 - [ ] **อย่าเพิ่งตั้งเกณฑ์เตือน** — ปล่อยให้เก็บข้อมูล 4-6 สัปดาห์ก่อน ตามหัวข้อ 12 ของเอกสารออกแบบ ค่า `dropThreshold` และ `consecutive` ปัจจุบันเป็นค่าเดาที่ยังไม่ควรเชื่อ
