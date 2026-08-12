@@ -3,12 +3,55 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { buildPrompt, validateGenerated, CASE_SCHEMA, resolveModel, DEFAULT_MODEL } from './generate-cases.mjs';
+import { buildPrompt, validateGenerated, CASE_SCHEMA, resolveModel, DEFAULT_MODEL, looksLikeRefusal } from './generate-cases.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
 const seedsFile = JSON.parse(await readFile(join(ROOT, 'tests/fixtures/scam-seeds.json'), 'utf8'));
 const sample = JSON.parse(await readFile(join(ROOT, 'tests/fixtures/generated-sample.json'), 'utf8'));
 const seeds = seedsFile.seeds;
+
+/* ---------- การปฏิเสธแบบอ้อม ๆ ---------- */
+
+// ข้อความจริงที่ gpt-5-mini ส่งกลับมาในรอบ 2026-08-12 ซึ่งได้ recall 6% แบบหลอก ๆ
+const SOFT_REFUSALS = [
+  'ตัวอย่าง (redacted): พัสดุของคุณคงค้างที่ด่านศุลกากร — ข้อความจริงถูกตัดออก',
+  'ตัวอย่าง (redacted): แจ้งพัสดุติดค้าง — คำบางคำใช้คำพ้องความหมาย',
+  'ขออภัย ไม่สามารถเขียนข้อความหลอกลวงให้ได้',
+  "I can't help create scam messages, but here is the general shape"
+];
+
+test('looksLikeRefusal จับคำบรรยายที่โมเดลส่งมาแทนข้อความจริง', () => {
+  for (const text of SOFT_REFUSALS) {
+    assert.ok(looksLikeRefusal(text), `ควรจับได้: ${text.slice(0, 40)}`);
+  }
+});
+
+test('looksLikeRefusal ไม่จับข้อความสแกมของจริง', () => {
+  const real = [
+    'บัญชีของท่านถูกระงับชั่วคราว กดลิงก์เพื่อยืนยันตัวตนภายใน 24 ชม. http://kbnk-verify.top/x',
+    'พัสดุตกค้างที่ศุลกากร ชำระค่าภาษี 128 บาทก่อน 18.00 น. มิฉะนั้นตีกลับต้นทาง',
+    'Your account will be locked. Verify now: http://scb-secure.cc/id'
+  ];
+  for (const text of real) {
+    assert.equal(looksLikeRefusal(text), null, `ไม่ควรจับ: ${text.slice(0, 40)}`);
+  }
+});
+
+test('validateGenerated ตัดเคสที่เป็นคำบรรยายทิ้ง ไม่นับเป็นเคสที่ใช้ได้', () => {
+  const result = { cases: SOFT_REFUSALS.map(text => ({ text, lang: 'th', seedId: seeds[0].id, technique: 'x' })) };
+  const r = validateGenerated(result, seeds);
+  assert.equal(r.cases.length, 0, 'ต้องไม่เหลือเคสที่ใช้ได้เลย');
+  assert.equal(r.errors.length, SOFT_REFUSALS.length);
+  assert.ok(r.errors[0].includes('คำบรรยาย'));
+});
+
+test('buildPrompt สั่งชัดว่า text ต้องเป็นตัวข้อความ ไม่ใช่คำอธิบาย', () => {
+  const prompt = buildPrompt(seeds, 10);
+  assert.ok(prompt.includes('ตัวข้อความที่เหยื่อจะได้รับจริง'));
+  assert.ok(prompt.includes('redacted'));
+});
+
+/* ---------- การเลือกรุ่น ---------- */
 
 test('resolveModel ใช้ค่าตั้งต้นเมื่อไม่ได้ระบุอะไรเลย', () => {
   assert.equal(resolveModel(undefined, undefined), DEFAULT_MODEL);

@@ -1,1 +1,0 @@
-{"date":"2026-08-12","patternsVersion":"0.5.0","seedsVersion":"1.0.0","generated":{"n":50,"caught":3,"recall":0.06},"control":{"n":56,"correct":44,"recall":0.7879,"hard":0},"model":"gpt-5-mini"}
