@@ -204,7 +204,7 @@ git commit -m "chore: เพิ่ม node:test สำหรับทดสอ�
   - `assessTrend(history: object[], opts?) → { status, ... }` โดย `status` เป็นหนึ่งใน `'insufficient-data' | 'ok' | 'decay' | 'engine-regression'`
   - รูปแบบหนึ่งบรรทัดใน history: `{ date, patternsVersion, seedsVersion, generated: {n, caught, recall}, control: {n, correct, recall, hard}, model }`
 
-- [ ] **Step 1: เขียนเทสต์ที่ยังล้ม**
+- [x] **Step 1: เขียนเทสต์ที่ยังล้ม**
 
 สร้าง `tools/lib/decay-store.test.mjs`
 
@@ -286,7 +286,7 @@ test('assessTrend ไม่เตือนเมื่อตกแค่รอ�
 });
 ```
 
-- [ ] **Step 2: รันแล้วต้องล้ม**
+- [x] **Step 2: รันแล้วต้องล้ม**
 
 ```bash
 node --test tools/lib/decay-store.test.mjs
@@ -294,7 +294,7 @@ node --test tools/lib/decay-store.test.mjs
 
 คาดหวัง: `Cannot find module` เพราะยังไม่มี `decay-store.mjs`
 
-- [ ] **Step 3: เขียนโค้ดให้ผ่าน**
+- [x] **Step 3: เขียนโค้ดให้ผ่าน**
 
 สร้าง `tools/lib/decay-store.mjs`
 
@@ -369,7 +369,7 @@ export function assessTrend(history, opts = {}) {
 }
 ```
 
-- [ ] **Step 4: รันแล้วต้องผ่านทั้ง 9 เทสต์**
+- [x] **Step 4: รันแล้วต้องผ่านทั้ง 9 เทสต์**
 
 ```bash
 node --test tools/lib/decay-store.test.mjs
@@ -377,7 +377,7 @@ node --test tools/lib/decay-store.test.mjs
 
 คาดหวัง: `# pass 9` `# fail 0`
 
-- [ ] **Step 5: ลบไฟล์ smoke ที่ไม่ต้องใช้แล้ว แล้วรันทั้งชุด**
+- [x] **Step 5: ลบไฟล์ smoke ที่ไม่ต้องใช้แล้ว แล้วรันทั้งชุด**
 
 ```bash
 rm tools/lib/smoke.test.mjs
@@ -386,7 +386,7 @@ npm run test:tools
 
 คาดหวัง: `# pass 9` `# fail 0`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add tools/lib/decay-store.mjs tools/lib/decay-store.test.mjs
