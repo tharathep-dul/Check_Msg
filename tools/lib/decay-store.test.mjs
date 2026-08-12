@@ -10,7 +10,7 @@ const entry = (genRecall, ctlRecall = 0.788) => ({
   date: '2026-01-01', patternsVersion: '0.5.0', seedsVersion: '1.0.0',
   generated: { n: 50, caught: Math.round(genRecall * 50), recall: genRecall },
   control: { n: 56, correct: Math.round(ctlRecall * 56), recall: ctlRecall, hard: 0 },
-  model: 'gpt-5.2'
+  model: 'gpt-5-mini'
 });
 
 test('parseJsonl ข้ามบรรทัดว่างและช่องว่าง', () => {

@@ -30,13 +30,22 @@ chekmsg.example.com {
 	header @fresh Cache-Control "public, max-age=0, must-revalidate"
 
 	# ไฟล์ที่ไม่ควรเปิดสาธารณะ (หน้า admin เข้าผ่าน SSH tunnel — ดูคู่มือ)
-	@private path /admin.html /tests/* /docs/* /tools/* /deploy/* /.git/* /package.json /package-lock.json /build.js /test-core.js
+	#
+	# ต้องมาก่อน handle_path /ocr* เพราะ handle เลือกตามลำดับที่เขียน
+	# /ocr-proxy/* อยู่ในรายการเพราะคู่มือเคยบอกให้วาง .env ไว้ใต้ web root
+	# ทางแก้หลักคือย้าย .env ไป /etc/chekmsg/ (ดูคู่มือข้อ 6) บรรทัดนี้เป็นชั้นกันพลาด
+	#
+	# /.git/* ไม่ครอบ /.github/ เพราะเป็นคนละ path segment จึงต้องเขียนแยก
+	@private path /admin.html /tests/* /docs/* /tools/* /deploy/* /ocr-proxy/* /.git/* /.github/* /CLAUDE.md /package.json /package-lock.json /build.js /test-core.js
 	handle @private {
 		respond 404
 	}
 
 	# OCR proxy อยู่โดเมนเดียวกัน จึงเป็น same-origin — connect-src 'self' ครอบคลุมแล้ว
 	# ไม่ต้องแก้ CSP และไม่มี CORS preflight
+	#
+	# /ocr* กว้างกว่าที่ตั้งใจ (กิน /ocr-proxy/ ไปด้วย) แต่ @private ข้างบนตัดไปก่อนแล้ว
+	# คงรูปแบบนี้ไว้เพื่อให้ proxyUrl ที่ตั้งเป็น '/ocr' หรือ '/ocr/' ใช้ได้ทั้งคู่
 	handle_path /ocr* {
 		reverse_proxy localhost:8787 {
 			# ส่ง IP จริงของผู้ใช้ต่อไปให้ ocr-proxy ไม่งั้นการจำกัดอัตราต่อ IP

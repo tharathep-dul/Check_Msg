@@ -3,9 +3,15 @@ services:
     build: .
     restart: unless-stopped
     ports:
-      - "8787:8787"
+      # ผูกกับ localhost เท่านั้น — reverse proxy อยู่เครื่องเดียวกัน
+      # ถ้าเขียนเป็น "8787:8787" พอร์ตจะเปิดทุก interface แล้วคนนอกยิงตรงข้าม
+      # reverse proxy ได้ ซึ่งข้าม ALLOWED_ORIGINS และการจำกัดอัตราต่อ IP ไปด้วย
+      - "127.0.0.1:8787:8787"
     environment:
-      # ห้าม hardcode key ลงไฟล์นี้ — ใส่ใน .env แล้ว compose จะอ่านให้เอง
+      # ห้าม hardcode key ลงไฟล์นี้
+      # บน VPS เก็บไว้นอก web root แล้วชี้ด้วย --env-file (ดู docs/deploy-vps.md ข้อ 6)
+      #   docker compose --env-file /etc/chekmsg/ocr-proxy.env up -d
+      # บนเครื่องพัฒนา วาง .env ข้างไฟล์นี้ได้ compose จะอ่านให้เอง
       TYPHOON_API_KEY: ${TYPHOON_API_KEY:?ต้องตั้งค่า TYPHOON_API_KEY ใน .env ก่อน}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-*}
       RATE_PER_SECOND: ${RATE_PER_SECOND:-2}

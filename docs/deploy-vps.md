@@ -214,14 +214,24 @@ sudo /var/www/chekmsg/deploy/cloudflare-ufw.sh --revert   # ถ้าต้อ�
 
 ข้ามได้ถ้ายังใช้ Tesseract ในเบราว์เซอร์ (ค่าเริ่มต้น ข้อมูลไม่ออกจากเครื่องผู้ใช้เลย)
 
+> ⚠️ **ห้ามวางไฟล์ที่มี key ไว้ใต้ `/var/www`** เพราะทั้งโฟลเดอร์นั้นคือ web root
+> ถ้าวาง `.env` ที่ `/var/www/chekmsg/ocr-proxy/.env` ใครก็ตามเปิด
+> `https://โดเมนคุณ/ocr-proxy/.env` แล้วอ่าน key ได้ทันที
+> `.gitignore` กันไม่ให้ key เข้า git ได้ แต่กันไม่ให้ web server เสิร์ฟไม่ได้ — คนละชั้นกัน
+>
+> เก็บไว้นอก web root แล้วชี้ด้วย `--env-file` ตามข้างล่างนี้
+
 ```bash
 curl -fsSL https://get.docker.com | sudo sh
-cd /var/www/chekmsg/ocr-proxy
-cp .env.example .env
-nano .env
+
+# เก็บ key ไว้นอก web root แล้วปิดสิทธิ์ให้เหลือแต่ root
+sudo mkdir -p /etc/chekmsg
+sudo cp /var/www/chekmsg/ocr-proxy/.env.example /etc/chekmsg/ocr-proxy.env
+sudo chmod 600 /etc/chekmsg/ocr-proxy.env
+sudo nano /etc/chekmsg/ocr-proxy.env
 ```
 
-`.env` — **สองบรรทัดนี้สำคัญเป็นพิเศษเมื่ออยู่หลัง reverse proxy**
+`/etc/chekmsg/ocr-proxy.env` — **สองบรรทัดนี้สำคัญเป็นพิเศษเมื่ออยู่หลัง reverse proxy**
 
 ```bash
 TYPHOON_API_KEY=<key ของคุณ>
@@ -231,23 +241,28 @@ TRUST_PROXY=1
 
 **`TRUST_PROXY=1` จำเป็น** เพราะ Caddy/nginx อยู่ข้างหน้า ถ้าไม่ตั้ง ทุกคำขอจะดูเหมือนมาจาก `127.0.0.1` เหมือนกันหมด แล้วการจำกัดอัตราต่อ IP จะยุบเหลือถังเดียว — กลับไปเป็นบั๊กเดิมที่ v0.5 เพิ่งแก้ไป
 
-**ผูกพอร์ตกับ localhost เท่านั้น** แก้ `docker-compose.yml`
-
-```yaml
-ports:
-  - "127.0.0.1:8787:8787"    # เดิมเป็น "8787:8787" ซึ่งเปิดทุก interface
-```
+**พอร์ตผูกกับ localhost มาให้แล้ว** — `docker-compose.yml` ตั้ง `127.0.0.1:8787:8787` ไว้ตั้งแต่ต้น
+ไม่ต้องแก้อะไร และอย่าเปลี่ยนกลับเป็น `8787:8787` เพราะจะเปิดพอร์ตทุก interface
+แล้วคนนอกยิงตรงข้าม reverse proxy ได้ ซึ่งข้าม `ALLOWED_ORIGINS` กับการจำกัดอัตราต่อ IP ไปพร้อมกัน
 
 ```bash
-docker compose up -d
+cd /var/www/chekmsg/ocr-proxy
+sudo docker compose --env-file /etc/chekmsg/ocr-proxy.env up -d
 curl -s localhost:8787/health      # {"ok":true}
 ```
+
+`--env-file` ต้องใส่ทุกครั้งที่สั่ง `docker compose` กับบริการนี้ รวมถึงตอน `restart` และ `pull`
+ลืมใส่แล้ว compose จะหา `TYPHOON_API_KEY` ไม่เจอแล้วหยุดพร้อมข้อความบอกเอง — ไม่ขึ้นแบบไม่มี key
 
 จากนั้นแก้ `index.html` บรรทัดเดียว
 
 ```js
-proxyUrl: '/ocr',    // same-origin — connect-src 'self' ครอบคลุมแล้ว ไม่ต้องแตะ CSP
+proxyUrl: '/ocr/',   // same-origin — connect-src 'self' ครอบคลุมแล้ว ไม่ต้องแตะ CSP
 ```
+
+**ต้องมี `/` ปิดท้าย** — `location /ocr/` ของ nginx เป็น prefix ที่ต้องการ slash
+ถ้าใส่ `/ocr` เฉย ๆ nginx จะตอบ 301 เพื่อเติม slash ให้ ซึ่ง**ทำให้ POST กลายเป็น GET และ body หายไป**
+แล้วการอัปโหลดภาพจะพังแบบหาสาเหตุยาก (Caddy ไม่เป็น แต่ใส่ slash ให้เหมือนกันไว้ดีกว่า)
 
 ---
 
