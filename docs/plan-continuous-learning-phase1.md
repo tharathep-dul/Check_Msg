@@ -858,7 +858,14 @@ git commit -m "feat(watch): สร้างเคสกัดด้วย LLM �
 - Produces: คำสั่ง `npm run watch:decay` และไฟล์ `tests/history/decay.jsonl`
 - Exit code: `0` ปกติ · `1` ผิดพลาดร้ายแรง · `2` สร้างเคสไม่สำเร็จ (ไม่บันทึกอะไร)
 
-- [ ] **Step 1: เขียนสคริปต์**
+> **แก้จากแผนเดิมตอนลงมือจริง** — ด่านตรวจ `cases.length < count * 0.5` ทำให้ `--dry-run`
+> ล้มทุกครั้ง เพราะ fixture มี 5 เคสแต่ `--count` ตั้งต้นเป็น 50 (`5 < 25`)
+> ต้องยกเว้นด่านนี้ในโหมดทดลอง — ด่านมีไว้กันการเรียก API จริงที่ได้เคสไม่ครบ
+>
+> และเก็บ `package-lock.json` เข้า repo ด้วย เพื่อให้ workflow ใน Task 6 ใช้ `npm ci`
+> ได้ผลเหมือนกันทุกครั้ง แทน `npm install --no-save` ที่ไม่ pin อะไรเลย
+
+- [x] **Step 1: เขียนสคริปต์**
 
 สร้าง `tools/watch-decay.mjs`
 
@@ -986,7 +993,7 @@ if (process.env.GITHUB_OUTPUT) {
 console.log('');
 ```
 
-- [ ] **Step 2: เพิ่ม script**
+- [x] **Step 2: เพิ่ม script**
 
 แก้ `package.json` เพิ่มใน `scripts` ต่อจาก `"compare"`
 
@@ -994,7 +1001,7 @@ console.log('');
 "watch:decay": "node tools/watch-decay.mjs"
 ```
 
-- [ ] **Step 3: รันโหมดทดลองโดยไม่บันทึก**
+- [x] **Step 3: รันโหมดทดลองโดยไม่บันทึก**
 
 ```bash
 npm run watch:decay -- --dry-run --no-write
@@ -1002,7 +1009,7 @@ npm run watch:decay -- --dry-run --no-write
 
 คาดหวัง: พิมพ์คะแนนของทั้งสองชุด, สถานะ `insufficient-data`, exit 0 และ **ไม่มีไฟล์ `tests/history/decay.jsonl` เกิดขึ้น**
 
-- [ ] **Step 4: ตรวจว่าไม่แตะไฟล์ที่ห้ามแตะ**
+- [x] **Step 4: ตรวจว่าไม่แตะไฟล์ที่ห้ามแตะ**
 
 ```bash
 git status --porcelain patterns.json tests/testset.json
@@ -1010,7 +1017,7 @@ git status --porcelain patterns.json tests/testset.json
 
 คาดหวัง: ไม่มีผลลัพธ์ (สองไฟล์นี้ต้องไม่ถูกแก้)
 
-- [ ] **Step 5: รันโหมดทดลองแบบบันทึกจริง**
+- [x] **Step 5: รันโหมดทดลองแบบบันทึกจริง**
 
 ```bash
 npm run watch:decay -- --dry-run
@@ -1019,13 +1026,13 @@ cat tests/history/decay.jsonl
 
 คาดหวัง: มีหนึ่งบรรทัด JSON ที่มีคีย์ `date`, `generated`, `control`, `model: "dry-run"`
 
-- [ ] **Step 6: ลบบรรทัดทดลองทิ้ง ไม่ให้ปนกับข้อมูลจริง**
+- [x] **Step 6: ลบบรรทัดทดลองทิ้ง ไม่ให้ปนกับข้อมูลจริง**
 
 ```bash
 rm tests/history/decay.jsonl
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add tools/watch-decay.mjs package.json

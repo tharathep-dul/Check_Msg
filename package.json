@@ -10,7 +10,8 @@
     "test:report": "node tests/run-tests.js --md tests/last-report.md",
     "test:tools": "node tools/run-tool-tests.mjs",
     "serve": "python3 -m http.server 8080",
-    "compare": "node tools/compare-versions.mjs"
+    "compare": "node tools/compare-versions.mjs",
+    "watch:decay": "node tools/watch-decay.mjs"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.116.0"
