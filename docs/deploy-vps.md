@@ -26,6 +26,7 @@
 10. [ดูแลรักษา](#10-ดูแลรักษา)
 11. [แก้ปัญหา](#11-แก้ปัญหา)
 12. [รันร่วมกับเว็บอื่นบนเครื่องเดียวกัน](#12-รันร่วมกับเว็บอื่นบนเครื่องเดียวกัน)
+13. [ทางที่ไม่แตะระบบเดิมเลย — Cloudflare Tunnel](#13-ทางที่ไม่แตะระบบเดิมเลย--cloudflare-tunnel)
 
 ไฟล์ config อยู่ในโฟลเดอร์ [`deploy/`](../deploy) — ทั้ง `Caddyfile` และ `nginx.conf` ผ่านการตรวจ syntax และรันทดสอบจริงแล้ว
 
@@ -501,6 +502,110 @@ free -m                                       # RAM เหลือพอไห�
 | `git clone` แยกโฟลเดอร์ (`/var/www/chekmsg`) | อย่าใช้ `cp` ทับ `/etc/caddy/Caddyfile` |
 | `/opt/chekmsg-ocr` แยกจากแอปอื่น | เช็คพอร์ต 8787 ว่าว่างจริง |
 | snippet `cloudflare-realip.conf` | ทุกโดเมนต้องเป็นเมฆส้มก่อนรัน `cloudflare-ufw.sh` |
+
+---
+
+## 13. ทางที่ไม่แตะระบบเดิมเลย — Cloudflare Tunnel
+
+ใช้เมื่อ VPS มีเว็บอื่นที่ใช้งานจริงอยู่แล้ว และ**ไม่อยากเสี่ยงแตะ reverse proxy ของมัน**
+
+หัวข้อ 12 บอกวิธีเพิ่ม ChekMsg เข้าไปในตัวรับหน้าบ้านที่มีอยู่ ซึ่งใช้ได้และเสี่ยงต่ำ แต่ยังต้องเขียนลงไฟล์ config ที่เว็บเดิมใช้ร่วมกัน หัวข้อนี้ตัดจุดร่วมนั้นทิ้งทั้งหมด
+
+```
+ผู้ใช้ ──→ Cloudflare ──ท่อ──→ cloudflared ──→ chekmsg-web
+                                 ↑ ท่อวิ่งออกจากเครื่อง ไม่ต้องเปิดพอร์ตขาเข้า
+
+reverse proxy เดิม · ufw · DNS เดิม · container อื่น  ← ไม่ถูกแตะเลยสักอย่าง
+```
+
+### เทียบกับวิธีปกติ
+
+| | ผ่าน reverse proxy เดิม | Cloudflare Tunnel |
+|---|---|---|
+| แก้ config ของเว็บเดิม | ต้องแก้ | **ไม่แตะ** |
+| reload web server เดิม | ต้อง | **ไม่ต้อง** |
+| เปิดพอร์ตเพิ่ม | ไม่ | ไม่ |
+| ใบรับรอง origin | ต้องมี | **ไม่ต้อง** — TLS จบที่ Cloudflare |
+| เพิ่ม DNS เอง | ต้อง | **ไม่ต้อง** — Cloudflare สร้างให้ |
+| network ร่วมกับแอปอื่น | ต้องเข้าไปร่วม | **แยกของตัวเอง** |
+| ถ้าพัง กระทบเว็บเดิม | โอกาสน้อยมาก | **เป็นไปไม่ได้** |
+| สิ่งที่แลกไป | — | container เพิ่ม 1 ตัว (~30 MB) และพึ่งบริการ Tunnel |
+
+แถว **network** สำคัญกว่าที่ดู — การเอา container ไปต่อ network เดียวกับแอปอื่น แปลว่ามันคุยกับฐานข้อมูลและ API ของแอปนั้นได้ทาง network วิธีนี้แยก network ของตัวเอง จึงคุยถึงกันไม่ได้เลย
+
+### ขั้นตอน
+
+**1. สร้างท่อใน Cloudflare**
+
+Zero Trust → Networks → Tunnels → **Create a tunnel** → เลือก **Cloudflared** → ตั้งชื่อ → **คัดลอก token**
+
+**2. บนเครื่อง** — ไม่ต้อง `sudo` ไม่ต้องออกนอกโฟลเดอร์ตัวเอง
+
+```bash
+mkdir -p ~/apps/chekmsg && cd ~/apps/chekmsg
+git clone https://github.com/tharathep-dul/Check_Msg.git site
+cp site/deploy/tunnel/docker-compose.yml site/deploy/tunnel/chekmsg.conf .
+
+printf 'TUNNEL_TOKEN=<token ที่คัดลอกมา>\n' > .env
+chmod 600 .env
+
+docker compose up -d
+docker compose ps          # ต้องขึ้น running ทั้งสองตัว
+```
+
+**3. ชี้ปลายทางใน Cloudflare** — ในหน้า tunnel เดิม → **Public Hostname** → Add
+
+| ช่อง | ค่า |
+|---|---|
+| Subdomain | `chekmsg` |
+| Domain | โดเมนของคุณ |
+| Service | `HTTP` · `chekmsg-web:80` |
+
+Cloudflare สร้าง DNS record ให้เอง **ไม่ต้องเพิ่มเอง**
+
+**4. ตรวจ**
+
+```bash
+SITE=https://chekmsg.โดเมนของคุณ
+
+curl -sI $SITE | grep -iE 'cf-ray|content-security-policy'
+
+# ต้องได้ 404 ทุกบรรทัด
+for p in /admin.html /tests/testset.json /docs/guide.md /CLAUDE.md /package.json /ocr-proxy/server.js; do
+  printf "%-24s %s\n" "$p" "$(curl -s -o /dev/null -w '%{http_code}' $SITE$p)"
+done
+
+# เว็บเดิมต้องยังปกติ
+curl -s -o /dev/null -w '%{http_code}\n' https://โดเมนเดิมของคุณ/
+```
+
+**5. Cache Rule** — ยังต้องทำตามข้อ 3.5 แต่ใช้กับ subdomain ใหม่ ไม่งั้นคำที่เพิ่งเพิ่มจะไม่ถึงผู้ใช้
+
+### ข้ามอะไรจากคู่มือได้บ้าง
+
+| ข้อ | เหตุผล |
+|---|---|
+| 3.1 DNS | Cloudflare สร้างให้ตอนตั้ง Public Hostname |
+| 3.3 Origin Certificate | ไม่ต้องใช้ TLS ที่ origin เลย |
+| 4 ติดตั้ง web server | อยู่ใน container แล้ว |
+| 5 `cloudflare-ufw.sh` | ท่อวิ่งออก ไม่มีพอร์ตขาเข้าให้ปิด |
+
+ยังต้องทำ — **3.2 SSL/TLS mode**, **3.4 ค่าอื่น**, **3.5 Cache Rule**
+
+### ถอยกลับ
+
+```bash
+cd ~/apps/chekmsg && docker compose down
+```
+
+แล้วลบ tunnel ในหน้า Cloudflare — จบ ไม่มีร่องรอยเหลือบนเครื่อง และไม่มีอะไรของเว็บเดิมถูกเปลี่ยนตั้งแต่แรก
+
+### ข้อควรรู้
+
+- **token คือความลับ** เก็บใน `.env` ที่ `chmod 600` อย่า commit ขึ้น git
+- `docker compose` ทุกคำสั่งต้องรันในโฟลเดอร์ที่มี `.env` ไม่งั้นจะหา `TUNNEL_TOKEN` ไม่เจอแล้วหยุด (ตั้งใจให้เป็นแบบนั้น — ดีกว่าขึ้นแบบใช้ไม่ได้)
+- **อัปเดตคลังคำ** — `cd ~/apps/chekmsg/site && git pull` เท่านั้น ไม่ต้อง restart container เพราะเป็น bind mount
+- ถ้าบริการ Tunnel ของ Cloudflare ล่ม ChekMsg เข้าไม่ได้ แต่**เว็บเดิมไม่กระทบ** เพราะคนละเส้นทาง
 
 ---
 

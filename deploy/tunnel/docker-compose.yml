@@ -1,0 +1,56 @@
+# ChekMsg ผ่าน Cloudflare Tunnel
+#
+# ใช้เมื่อบน VPS มีเว็บอื่นรันอยู่แล้ว และไม่อยากแตะ reverse proxy ของเดิม
+# วิธีติดตั้งทั้งหมดอยู่ใน docs/deploy-vps.md ข้อ 13
+#
+#   cp -r deploy/tunnel ~/apps/chekmsg && cd ~/apps/chekmsg
+#   git clone https://github.com/tharathep-dul/Check_Msg.git site
+#   printf 'TUNNEL_TOKEN=<token จาก Cloudflare>\n' > .env && chmod 600 .env
+#   docker compose up -d
+#
+# สิ่งที่ไม่ถูกแตะเลย: reverse proxy เดิม, ufw, DNS ที่มีอยู่, container อื่นทุกตัว
+# ท่อวิ่งออกจากเครื่อง จึงไม่ต้องเปิดพอร์ตขาเข้าเพิ่มแม้แต่พอร์ตเดียว
+
+services:
+  # เสิร์ฟไฟล์ static — ไม่ publish พอร์ตออกเครื่อง
+  # เข้าถึงได้จาก container ใน chekmsg-net เท่านั้น
+  chekmsg:
+    image: nginx:1.27-alpine
+    container_name: chekmsg-web
+    restart: unless-stopped
+    volumes:
+      - ./site:/usr/share/nginx/html:ro
+      - ./chekmsg.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - chekmsg-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # ท่อไปหา Cloudflare — ปลายทางตั้งในหน้า dashboard ไม่ได้ตั้งที่นี่
+  # (Public Hostname → Service: HTTP://chekmsg-web:80)
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: chekmsg-tunnel
+    restart: unless-stopped
+    # ห้าม hardcode token ลงไฟล์นี้ — ใส่ใน .env แล้ว compose จะอ่านให้เอง
+    # ถ้าไม่มี TUNNEL_TOKEN compose จะหยุดพร้อมข้อความบอก ไม่ขึ้นแบบใช้ไม่ได้
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN:?ต้องตั้ง TUNNEL_TOKEN ใน .env ก่อน}
+    depends_on:
+      - chekmsg
+    networks:
+      - chekmsg-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+# network ของตัวเอง ไม่เข้าไปยุ่งกับของแอปอื่นบนเครื่อง
+# ผลคือ chekmsg-web คุยกับฐานข้อมูลหรือ API ของแอปอื่นไม่ได้เลย
+networks:
+  chekmsg-net:
+    driver: bridge
